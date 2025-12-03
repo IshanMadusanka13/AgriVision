@@ -8,9 +8,6 @@ export default function CameraUploadScreen() {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // -------------------------------
-  // Open Image Library
-  // -------------------------------
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -22,9 +19,6 @@ export default function CameraUploadScreen() {
     }
   };
 
-  // -------------------------------
-  // Take Photo Using Camera
-  // -------------------------------
   const takePhoto = async () => {
     if (!permission?.granted) {
       await requestPermission();
@@ -38,9 +32,6 @@ export default function CameraUploadScreen() {
     setCameraVisible(false);
   };
 
-  // -------------------------------
-  // Upload Image to FastAPI Backend
-  // -------------------------------
   const submitImage = async () => {
     if (!image) {
       Alert.alert("No image selected");
@@ -57,7 +48,6 @@ export default function CameraUploadScreen() {
     const mimeType = match ? `image/${match[1].toLowerCase()}` : "image/jpeg";
 
     if (Platform.OS === "web") {
-      // On web, the runtime needs a Blob — fetch the URI and convert.
       try {
         const response = await fetch(localUri);
         const blob = await response.blob();
@@ -69,7 +59,6 @@ export default function CameraUploadScreen() {
         return;
       }
     } else {
-      // Native (iOS/Android) — append object with uri/name/type
       formData.append("file", {
         uri: localUri,
         name: filename || "upload.jpg",
@@ -82,7 +71,6 @@ export default function CameraUploadScreen() {
         method: "POST",
         headers: {
           Accept: "application/json",
-          // Do NOT set "Content-Type" — runtime will add boundary
         },
         body: formData,
       });
@@ -96,9 +84,6 @@ export default function CameraUploadScreen() {
     }
   };
 
-  // -------------------------------
-  // Camera View Component
-  // -------------------------------
   if (cameraVisible) {
     return (
       <CameraView
