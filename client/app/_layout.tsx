@@ -17,6 +17,45 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen
+          name="camera"
+          options={{
+            title: 'Take Photo',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="npk-input"
+          options={{
+            title: 'NPK Input',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="result"
+          options={{
+            title: 'Analysis Results',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
