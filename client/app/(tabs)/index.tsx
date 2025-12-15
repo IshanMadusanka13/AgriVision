@@ -1,137 +1,98 @@
 // app/(tabs)/index.tsx
 // Home screen with navigation options
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
-  Alert,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { checkAPIStatus } from '@/services/api';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
-  useEffect(() => {
-    checkAPI();
-  }, []);
+  const menuItems = [
+    {
+      title: 'Growth Analysis',
+      description: 'Plant growth stage detection',
+      icon: '🌱',
+      route: '/growth/growth',
+      color: '#10b981',
+    },
+    {
+      title: 'Disease Detection',
+      description: 'Identify plant diseases',
+      icon: '🔬',
+      route: '/disease/disease',
+      color: '#f59e0b',
+    },
+    {
+      title: 'Coming Soon',
+      description: 'Feature in development',
+      icon: '🚧',
+      route: '/',
+      color: '#6b7280',
+    },
+    {
+      title: 'Coming Soon',
+      description: 'Feature in development',
+      icon: '🚧',
+      route: '/',
+      color: '#6b7280',
+    },
+  ];
 
-  const checkAPI = async () => {
-    try {
-      const isOnline = await checkAPIStatus();
-      setApiStatus(isOnline ? 'online' : 'offline');
-    } catch (error) {
-      setApiStatus('offline');
-    }
-  };
-
-  const handleStartAnalysis = () => {
-    if (apiStatus === 'offline') {
-      Alert.alert(
-        'API Offline',
-        'Backend server එක running නැහැ. කරුණාකර backend start කරන්න:\n\ncd backend\npython main.py',
-        [{ text: 'OK' }]
-      );
+  const handleNavigation = (route: string) => {
+    if (route === '/') {
+      // Show alert for coming soon features
+      alert('This feature is coming soon!');
       return;
     }
-    router.push('/growth/camera');
+    router.push(route as any);
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>🌶️</Text>
-        <Text style={styles.subtitle}>Scotch Bonnet Monitor</Text>
-        <Text style={styles.description}>
-          AI-powered plant health monitoring
+        <Text style={styles.title}>AgriVision</Text>
+        <Text style={styles.subtitle}>AI-Powered Agriculture Assistant</Text>
+      </View>
+
+      {/* Main Content */}
+      <View style={styles.content}>
+        <Text style={styles.welcomeText}>
+          Welcome to AgriVision. Select a feature to get started.
         </Text>
-      </View>
 
-      {/* API Status */}
-      <View style={styles.statusContainer}>
-        <View style={[styles.statusBadge, apiStatus === 'online' && styles.statusOnline]}>
-          <View style={[styles.statusDot, apiStatus === 'online' && styles.dotOnline]} />
-          <Text style={styles.statusText}>
-            {apiStatus === 'checking' ? 'Checking...' : apiStatus === 'online' ? 'API Online' : 'API Offline'}
-          </Text>
-        </View>
-        <TouchableOpacity onPress={checkAPI} style={styles.refreshButton}>
-          <Text style={styles.refreshText}>🔄 Refresh</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Features */}
-      <View style={styles.featuresContainer}>
-        <Text style={styles.sectionTitle}>Features</Text>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.featureIcon}>📸</Text>
-          <Text style={styles.featureTitle}>Plant Detection</Text>
-          <Text style={styles.featureDescription}>
-            YOLOv8 AI model use කරලා leaves, flowers, fruits detect කරනවා
-          </Text>
+        {/* Menu Grid */}
+        <View style={styles.menuGrid}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.menuCard, { borderTopColor: item.color }]}
+              onPress={() => handleNavigation(item.route)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}>
+                <Text style={styles.icon}>{item.icon}</Text>
+              </View>
+              <Text style={styles.menuTitle}>{item.title}</Text>
+              <Text style={styles.menuDescription}>{item.description}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={styles.featureCard}>
-          <Text style={styles.featureIcon}>🌱</Text>
-          <Text style={styles.featureTitle}>Growth Stage</Text>
-          <Text style={styles.featureDescription}>
-            Vegetative, flowering, fruiting stages identify කරනවා
-          </Text>
-        </View>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.featureIcon}>🧪</Text>
-          <Text style={styles.featureTitle}>NPK Analysis</Text>
-          <Text style={styles.featureDescription}>
-            Soil fertilizer levels analyze කරලා recommendations දෙනවා
-          </Text>
-        </View>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.featureIcon}>📅</Text>
-          <Text style={styles.featureTitle}>Weekly Plan</Text>
-          <Text style={styles.featureDescription}>
-            Weather-adjusted fertilizer schedule එකක් generate කරනවා
-          </Text>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Powered by YOLOv8 AI</Text>
+          <Text style={styles.footerText}>v1.0.0</Text>
         </View>
       </View>
-
-      {/* Start Button */}
-      <TouchableOpacity
-        style={[styles.startButton, apiStatus === 'offline' && styles.buttonDisabled]}
-        onPress={handleStartAnalysis}
-      >
-        <Text style={styles.startButtonText}>
-          {apiStatus === 'offline' ? '⚠️ API Offline' : '📸 Start Analysis'}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Instructions */}
-      <View style={styles.instructionsContainer}>
-        <Text style={styles.sectionTitle}>How to Use</Text>
-        <Text style={styles.instructionText}>1. Take a clear photo of your plant</Text>
-        <Text style={styles.instructionText}>2. AI detects leaves, flowers, and fruits</Text>
-        <Text style={styles.instructionText}>3. Enter NPK meter readings</Text>
-        <Text style={styles.instructionText}>4. Get personalized fertilizer plan</Text>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Built with YOLOv8 & FastAPI
-        </Text>
-        <Text style={styles.footerText}>
-          🇱🇰 Made for Sri Lankan farmers
-        </Text>
-      </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -141,144 +102,84 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   header: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 24,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
     alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: '#10b981',
   },
   title: {
-    fontSize: 64,
-    marginBottom: 10,
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 5,
-  },
-  description: {
     fontSize: 16,
-    color: '#d1fae5',
+    color: '#6b7280',
+    textAlign: 'center',
   },
-  statusContainer: {
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 30,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: '#4b5563',
+    textAlign: 'center',
+    marginBottom: 40,
+    lineHeight: 22,
+  },
+  menuGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: -20,
-    borderRadius: 12,
+  },
+  menuCard: {
+    width: '48%',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderTopWidth: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statusBadge: {
-    flexDirection: 'row',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#fee2e2',
-    borderRadius: 20,
   },
-  statusOnline: {
-    backgroundColor: '#d1fae5',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    marginRight: 8,
-  },
-  dotOnline: {
-    backgroundColor: '#10b981',
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  refreshButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  refreshText: {
-    fontSize: 14,
-    color: '#10b981',
-    fontWeight: '600',
-  },
-  featuresContainer: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+  iconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  featureCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  icon: {
+    fontSize: 28,
   },
-  featureIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  featureTitle: {
+  menuTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  startButton: {
-    backgroundColor: '#10b981',
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  buttonDisabled: {
-    backgroundColor: '#9ca3af',
-  },
-  startButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  instructionsContainer: {
-    padding: 16,
-    marginTop: 16,
-  },
-  instructionText: {
-    fontSize: 15,
-    color: '#4b5563',
     marginBottom: 8,
-    paddingLeft: 8,
+    textAlign: 'center',
+  },
+  menuDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   footer: {
+    marginTop: 'auto',
+    paddingVertical: 30,
     alignItems: 'center',
-    padding: 24,
-    marginTop: 16,
   },
   footerText: {
     fontSize: 13,
