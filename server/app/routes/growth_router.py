@@ -69,16 +69,16 @@ async def root():
         "message": "Scotch Bonnet Plant Monitor API",
         "version": "2.0",
         "endpoints": {
-            "detect": "/api/detect - POST image for plant detection",
-            "recommend": "/api/recommend - POST for fertilizer recommendation",
-            "full_analysis": "/api/full_analysis - POST image + NPK data for complete analysis",
-            "weather": "/api/weather - GET current weather data",
-            "forecast": "/api/forecast - GET weather forecast"
+            "detect": "/detect - POST image for plant detection",
+            "recommend": "/recommend - POST for fertilizer recommendation",
+            "full_analysis": "/full_analysis - POST image + NPK data for complete analysis",
+            "weather": "/weather - GET current weather data",
+            "forecast": "/forecast - GET weather forecast"
         }
     }
 
 
-@router.get("/api/weather")
+@router.get("/weather")
 async def get_weather(latitude: float, longitude: float):
     try:
         weather_data = weather_service.get_current_weather(latitude, longitude)
@@ -90,7 +90,7 @@ async def get_weather(latitude: float, longitude: float):
         raise HTTPException(status_code=500, detail=f"Weather API error: {str(e)}")
 
 
-@router.get("/api/forecast")
+@router.get("/forecast")
 async def get_forecast(latitude: float, longitude: float, days: int = 7):
     try:
         if days > 7:
@@ -106,7 +106,7 @@ async def get_forecast(latitude: float, longitude: float, days: int = 7):
         raise HTTPException(status_code=500, detail=f"Weather forecast error: {str(e)}")
 
 
-@router.post("/api/detect", response_model=DetectionResult)
+@router.post("/detect", response_model=DetectionResult)
 async def detect_plant(file: UploadFile = File(...)):
     if not model:
         raise HTTPException(status_code=500, detail="YOLOv8 model load වෙලා නැහැ")
@@ -153,7 +153,7 @@ async def detect_plant(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
 
-@router.post("/api/recommend", response_model=FertilizerRecommendation)
+@router.post("/recommend", response_model=FertilizerRecommendation)
 async def recommend_fertilizer(request: FertilizerRequest):
     try:
         weather_condition = request.weather_condition
@@ -205,7 +205,7 @@ async def recommend_fertilizer(request: FertilizerRequest):
         raise HTTPException(status_code=500, detail=f"Recommendation error: {str(e)}")
 
 
-@router.post("/api/full_analysis")
+@router.post("/full_analysis")
 async def full_analysis(
     file: UploadFile = File(...),
     nitrogen: float = Form(...),

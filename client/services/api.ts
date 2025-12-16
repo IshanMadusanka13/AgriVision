@@ -1,8 +1,6 @@
-// services/api.ts
-// API service for communicating with FastAPI backend
-
 import axios, { AxiosInstance } from 'axios';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Types
 export interface DetectionResult {
@@ -56,7 +54,7 @@ export interface WeatherData {
   humidity: number;
   description: string;
   timestamp: string;
-  location?: string; // Added for display purposes in UI
+  location?: string;
 }
 
 export interface ForecastDay {
@@ -73,51 +71,62 @@ export interface Location {
   longitude: number;
 }
 
-// Get API URL from environment or use default
 const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.4:8000';
 
-// Create axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 30000, // 30 seconds
+  timeout: 30000,
   headers: {
-    'Content-Type': 'multipart/form-data',
+    'Content-Type': 'application/json',
   },
 });
 
-/**
- * Detect plant from image
- * @param imageUri - URI of the image
- * @returns Detection results
- */
+// Helper: Create file object from URI
+const createFileFromUri = (imageUri: string) => {
+  const filename = imageUri.split('/').pop() || 'photo.jpg';
+  const match = /\.(\w+)$/.exec(filename);
+  const type = match ? `image/${match[1]}` : 'image/jpeg';
+  
+  return { uri: imageUri, name: filename, type } as any;
+};
+
+// Helper: Create FormData with image
+const createImageFormData = (imageUri: string): FormData => {
+  const formData = new FormData();
+  formData.append('file', createFileFromUri(imageUri));
+  return formData;
+};
+
+// Helper: Append optional fields to FormData
+const appendOptionalFields = (
+  formData: FormData,
+  fields: Record<string, any>
+): void => {
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      formData.append(key, value.toString());
+    }
+  });
+};
+
+// Helper: Handle API errors
+const handleApiError = (error: any, context: string): never => {
+  console.error(`${context} error:`, error);
+  throw error;
+};
+
 export const detectPlant = async (imageUri: string): Promise<DetectionResult> => {
   try {
-    const formData = new FormData();
-
-    // Create file object from URI
-    const filename = imageUri.split('/').pop() || 'photo.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    formData.append('file', {
-      uri: imageUri,
-      name: filename,
-      type: type,
-    } as any);
-
-    const response = await api.post<DetectionResult>('/api/detect', formData);
+    const formData = createImageFormData(imageUri);
+    const response = await api.post<DetectionResult>('/api/growth/detect', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   } catch (error) {
-    console.error('Detection error:', error);
-    throw error;
+    return handleApiError(error, 'Detection');
   }
 };
 
-/**
- * Get fertilizer recommendation
- * @param data - { growth_stage, npk_levels, location (optional), weather_condition (optional), temperature (optional) }
- * @returns Fertilizer recommendations
- */
 export const getRecommendation = async (
   data: {
     growth_stage: string;
@@ -131,29 +140,13 @@ export const getRecommendation = async (
   }
 ): Promise<Recommendation> => {
   try {
-    const response = await api.post<Recommendation>('/api/recommend', data, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await api.post<Recommendation>('/api/growth/recommend', data);
     return response.data;
   } catch (error) {
-    console.error('Recommendation error:', error);
-    throw error;
+    return handleApiError(error, 'Recommendation');
   }
 };
 
-/**
- * Get full analysis (detection + recommendation)
- * @param imageUri - URI of the image
- * @param npkData - { nitrogen, phosphorus, potassium }
- * @param location - { latitude, longitude } for auto weather (optional)
- * @param weather - Weather condition (optional - auto-fetched if location provided)
- * @param temperature - Temperature (optional - auto-fetched if location provided)
- * @param ph - Soil pH value (optional)
- * @param humidity - Humidity percentage (optional - auto-fetched if location provided)
- * @returns Full analysis results
- */
 export const getFullAnalysis = async (
   imageUri: string,
   npkData: NPKData,
@@ -164,89 +157,44 @@ export const getFullAnalysis = async (
   humidity?: number | null
 ): Promise<FullAnalysisResult> => {
   try {
-    const formData = new FormData();
+    const formData = createImageFormData(imageUri);
+    
+    Object.entries(npkData).forEach(([key, value]) => {
+      formData.append(key, value.toString());
+    });
 
-    // Add image
-    const filename = imageUri.split('/').pop() || 'photo.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    appendOptionalFields(formData, {
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      weather,
+      temperature,
+      ph,
+      humidity,
+    });
 
-    formData.append('file', {
-      uri: imageUri,
-      name: filename,
-      type: type,
-    } as any);
-
-    // Add NPK data
-    formData.append('nitrogen', npkData.nitrogen.toString());
-    formData.append('phosphorus', npkData.phosphorus.toString());
-    formData.append('potassium', npkData.potassium.toString());
-
-    // Add location if provided
-    if (location) {
-      formData.append('latitude', location.latitude.toString());
-      formData.append('longitude', location.longitude.toString());
-    }
-
-    // Add manual weather data (optional - will override auto-fetched data)
-    if (weather) {
-      formData.append('weather', weather);
-    }
-
-    if (temperature) {
-      formData.append('temperature', temperature.toString());
-    }
-
-    if (ph) {
-      formData.append('ph', ph.toString());
-    }
-
-    if (humidity) {
-      formData.append('humidity', humidity.toString());
-    }
-
-    const response = await api.post<FullAnalysisResult>('/api/full_analysis', formData);
+    const response = await api.post<FullAnalysisResult>('/api/growth/full_analysis', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   } catch (error) {
-    console.error('Full analysis error:', error);
-    throw error;
+    return handleApiError(error, 'Full analysis');
   }
 };
 
-/**
- * Get current weather data
- * @param location - { latitude, longitude }
- * @returns Current weather data
- */
 export const getCurrentWeather = async (
   location: Location
 ): Promise<WeatherData> => {
   try {
     const response = await api.get<{ success: boolean; data: WeatherData }>(
-      '/api/weather',
-      {
-        params: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
+      '/api/growth/weather',
+      { params: location }
     );
     return response.data.data;
   } catch (error) {
-    console.error('Weather API error:', error);
-    throw error;
+    return handleApiError(error, 'Weather API');
   }
 };
 
-/**
- * Get weather forecast for upcoming days
- * @param location - { latitude, longitude }
- * @param days - Number of days (default 7, max 7)
- * @returns Daily weather forecast
- */
 export const getWeatherForecast = async (
   location: Location,
   days: number = 7
@@ -256,33 +204,47 @@ export const getWeatherForecast = async (
       success: boolean;
       data: ForecastDay[];
       days: number;
-    }>('/api/forecast', {
-      params: {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        days: Math.min(days, 7),
-      },
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    }>('/api/growth/forecast', {
+      params: { ...location, days: Math.min(days, 7) },
     });
     return response.data.data;
   } catch (error) {
-    console.error('Forecast API error:', error);
-    throw error;
+    return handleApiError(error, 'Forecast API');
   }
 };
 
-/**
- * Check if API is reachable
- * @returns Promise resolving to true if API is online
- */
+
 export const checkAPIStatus = async (): Promise<boolean> => {
   try {
     const response = await api.get('/');
     return response.status === 200;
   } catch (error) {
     return false;
+  }
+};
+
+
+export const uploadImage = async (imageUri: string): Promise<any> => {
+  try {
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || 'upload.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    if (Platform.OS === 'web') {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      formData.append('file', blob, filename);
+    } else {
+      formData.append('file', createFileFromUri(imageUri));
+    }
+
+    const response = await api.post('/api/disease', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Upload');
   }
 };
 
@@ -293,4 +255,5 @@ export default {
   getCurrentWeather,
   getWeatherForecast,
   checkAPIStatus,
+  uploadImage,
 };
