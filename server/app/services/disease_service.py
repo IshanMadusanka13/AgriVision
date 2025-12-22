@@ -2,6 +2,10 @@ import numpy as np
 import cv2
 from io import BytesIO
 import os
+from datetime import datetime
+from PIL import Image
+from configs.model_loader import disease_model
+from PIL import Image
 
 REFERENCE_IMAGE_PATH = r"D:\Projects\AgriVision\server\app\img.JPG"
 
@@ -62,3 +66,85 @@ async def process_uploaded_image(file):
         "uploaded_hsv_shape": hsv_img.shape,
         "reference_path": REFERENCE_IMAGE_PATH
     }
+
+# ---------------------Model Inference--------------------------------
+CONF_THRESHOLD = 0.15
+
+def run_inference(image: Image.Image):
+    results = disease_model.predict(
+        source=image,
+        imgsz=640,
+        conf=CONF_THRESHOLD
+    )
+
+    detections = results[0].boxes
+
+    if detections is None or len(detections) == 0:
+        return {
+            "status": "no_leaf_detected"
+        }
+
+    best_box = max(detections, key=lambda x: float(x.conf))
+    class_id = int(best_box.cls)
+    confidence = float(best_box.conf)
+
+    class_name = disease_model.names[class_id]
+
+    return {
+        "status": "success",
+        "prediction": class_name,
+        "confidence": round(confidence * 100, 2)
+    }
+
+
+
+# -------------------testing model function ------------------------------------------
+
+CONF_THRESHOLD = 0.55
+OUTPUT_DIR = "modelTesting/outputs"
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+SUPPORTED_EXTENSIONS = (".jpg", ".jpeg", ".png")
+
+def run_inference_on_folder(folder_path: str):
+    if not os.path.isdir(folder_path):
+        raise ValueError("Invalid folder path")
+
+    saved_files = []
+
+    for filename in os.listdir(folder_path):
+        if not filename.lower().endswith(SUPPORTED_EXTENSIONS):
+            continue
+
+        image_path = os.path.join(folder_path, filename)
+
+        try:
+            image = Image.open(image_path).convert("RGB")
+        except Exception:
+            continue
+
+        results = disease_model.predict(
+            source=image,
+            imgsz=640,
+            conf=CONF_THRESHOLD
+        )
+
+        result = results[0]
+
+        if result.boxes is None or len(result.boxes) == 0:
+            continue
+
+        annotated_image = result.plot()
+        annotated_pil = Image.fromarray(annotated_image)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        output_path = os.path.join(
+            OUTPUT_DIR,
+            f"{os.path.splitext(filename)[0]}_{timestamp}.jpg"
+        )
+
+        annotated_pil.save(output_path, format="JPEG")
+        saved_files.append(output_path)
+
+    return saved_files

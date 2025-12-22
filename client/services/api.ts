@@ -226,6 +226,7 @@ export const checkAPIStatus = async (): Promise<boolean> => {
 
 export const uploadImage = async (imageUri: string): Promise<any> => {
   try {
+    console.log("Uploading image:", imageUri);
     const formData = new FormData();
     const filename = imageUri.split('/').pop() || 'upload.jpg';
     const match = /\.(\w+)$/.exec(filename);
@@ -239,7 +240,7 @@ export const uploadImage = async (imageUri: string): Promise<any> => {
       formData.append('file', createFileFromUri(imageUri));
     }
 
-    const response = await api.post('/api/disease', formData, {
+    const response = await api.post('/api/disease/predict', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
