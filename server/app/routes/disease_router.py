@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File
-from services.disease_service import process_uploaded_image
+from app.services.disease_service import process_uploaded_image
 
 router = APIRouter()
 

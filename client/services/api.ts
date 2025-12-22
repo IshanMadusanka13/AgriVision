@@ -1,8 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// -----------------------
 // Types
+// -----------------------
 export interface DetectionResult {
   growth_stage: string;
   confidence: number;
@@ -71,33 +72,28 @@ export interface Location {
   longitude: number;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.4:8000';
+// -----------------------
+// API Setup
+// -----------------------
+const API_URL = 'http://192.168.1.2:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
-// Helper: Create file object from URI
+// -----------------------
+// Helpers
+// -----------------------
 const createFileFromUri = (imageUri: string) => {
   const filename = imageUri.split('/').pop() || 'photo.jpg';
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : 'image/jpeg';
-  
-  return { uri: imageUri, name: filename, type } as any;
+  return {
+    uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+    name: filename,
+    type: 'image/jpeg', // Supports .jpg, .jpeg, .png (backend should accept)
+  } as any;
 };
 
-// Helper: Create FormData with image
-const createImageFormData = (imageUri: string): FormData => {
-  const formData = new FormData();
-  formData.append('file', createFileFromUri(imageUri));
-  return formData;
-};
-
-// Helper: Append optional fields to FormData
 const appendOptionalFields = (
   formData: FormData,
   fields: Record<string, any>
@@ -109,24 +105,112 @@ const appendOptionalFields = (
   });
 };
 
-// Helper: Handle API errors
 const handleApiError = (error: any, context: string): never => {
   console.error(`${context} error:`, error);
   throw error;
 };
 
+// -----------------------
+// Image-based API calls
+// -----------------------
 export const detectPlant = async (imageUri: string): Promise<DetectionResult> => {
   try {
-    const formData = createImageFormData(imageUri);
-    const response = await api.post<DetectionResult>('/api/growth/detect', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const formData = new FormData();
+    formData.append('file', createFileFromUri(imageUri));
+
+    const response = await fetch(`${API_URL}/api/growth/detect`, {
+      method: 'POST',
+      body: formData,
     });
-    return response.data;
+
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    return await response.json();
   } catch (error) {
     return handleApiError(error, 'Detection');
   }
 };
 
+export const uploadImage = async (imageUri: string): Promise<any> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', createFileFromUri(imageUri));
+
+    const response = await fetch(`${API_URL}/api/disease`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return handleApiError(error, 'Upload');
+  }
+};
+
+export const getFullAnalysis = async (
+  imageUri: string,
+  npkData: NPKData,
+  location?: Location | null,
+  weather?: string | null,
+  temperature?: number | null,
+  ph?: number | null,
+  humidity?: number | null
+): Promise<FullAnalysisResult> => {
+  try {
+    const formData = new FormData();
+
+    formData.append('file', createFileFromUri(imageUri));
+
+    Object.entries(npkData).forEach(([key, value]) => {
+      formData.append(key, value.toString());
+    });
+
+    appendOptionalFields(formData, {
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      weather,
+      temperature,
+      ph,
+      humidity,
+    });
+
+    const response = await fetch(`${API_URL}/api/growth/full_analysis`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return handleApiError(error, 'Full analysis');
+  }
+};
+
+// -----------------------
+// NEW: Grade Quality API
+// -----------------------
+export const gradeQuality = async (imageUris: string[]): Promise<any> => {
+  try {
+    const formData = new FormData();
+    imageUris.forEach((uri, i) => {
+      formData.append('files', createFileFromUri(uri));
+    });
+
+    const response = await fetch(`${API_URL}/api/quality/grade`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return handleApiError(error, 'Grade Quality');
+  }
+};
+
+// -----------------------
+// JSON-based API calls
+// -----------------------
 export const getRecommendation = async (
   data: {
     growth_stage: string;
@@ -147,43 +231,7 @@ export const getRecommendation = async (
   }
 };
 
-export const getFullAnalysis = async (
-  imageUri: string,
-  npkData: NPKData,
-  location?: Location | null,
-  weather?: string | null,
-  temperature?: number | null,
-  ph?: number | null,
-  humidity?: number | null
-): Promise<FullAnalysisResult> => {
-  try {
-    const formData = createImageFormData(imageUri);
-    
-    Object.entries(npkData).forEach(([key, value]) => {
-      formData.append(key, value.toString());
-    });
-
-    appendOptionalFields(formData, {
-      latitude: location?.latitude,
-      longitude: location?.longitude,
-      weather,
-      temperature,
-      ph,
-      humidity,
-    });
-
-    const response = await api.post<FullAnalysisResult>('/api/growth/full_analysis', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Full analysis');
-  }
-};
-
-export const getCurrentWeather = async (
-  location: Location
-): Promise<WeatherData> => {
+export const getCurrentWeather = async (location: Location): Promise<WeatherData> => {
   try {
     const response = await api.get<{ success: boolean; data: WeatherData }>(
       '/api/growth/weather',
@@ -200,60 +248,38 @@ export const getWeatherForecast = async (
   days: number = 7
 ): Promise<ForecastDay[]> => {
   try {
-    const response = await api.get<{
-      success: boolean;
-      data: ForecastDay[];
-      days: number;
-    }>('/api/growth/forecast', {
-      params: { ...location, days: Math.min(days, 7) },
-    });
+    const response = await api.get<{ success: boolean; data: ForecastDay[]; days: number }>(
+      '/api/growth/forecast',
+      { params: { ...location, days: Math.min(days, 7) } }
+    );
     return response.data.data;
   } catch (error) {
     return handleApiError(error, 'Forecast API');
   }
 };
 
-
+// -----------------------
+// Health Check
+// -----------------------
 export const checkAPIStatus = async (): Promise<boolean> => {
   try {
     const response = await api.get('/');
     return response.status === 200;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
 
-
-export const uploadImage = async (imageUri: string): Promise<any> => {
-  try {
-    const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'upload.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      formData.append('file', blob, filename);
-    } else {
-      formData.append('file', createFileFromUri(imageUri));
-    }
-
-    const response = await api.post('/api/disease', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Upload');
-  }
-};
-
+// -----------------------
+// Export Default
+// -----------------------
 export default {
   detectPlant,
-  getRecommendation,
+  uploadImage,
   getFullAnalysis,
+  gradeQuality,
+  getRecommendation,
   getCurrentWeather,
   getWeatherForecast,
   checkAPIStatus,
-  uploadImage,
 };

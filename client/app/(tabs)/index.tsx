@@ -30,11 +30,11 @@ export default function HomeScreen() {
       color: '#f59e0b',
     },
     {
-      title: 'Coming Soon',
-      description: 'Feature in development',
-      icon: '🚧',
-      route: '/',
-      color: '#6b7280',
+      title: 'Quality Grading',
+      description: 'Detect the quality of scotch bonnet',
+      icon: '🧺',
+      route: '/quality/quality',
+      color: '#105a0cff',
     },
     {
       title: 'Coming Soon',
