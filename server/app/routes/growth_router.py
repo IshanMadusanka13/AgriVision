@@ -11,13 +11,13 @@ from PIL import Image
 
 # Import weather service
 try:
-    from app.services.weather_service import weather_service
+    from services.weather_service import weather_service
 except ImportError:
-    from app.services.weather_service import weather_service
+    from services.weather_service import weather_service
 
 # Import fertilizer service
 try:
-    from app.services.fertilizer_service import (
+    from services.fertilizer_service import (
         NPKInput,
         FertilizerRecommendation,
         determine_growth_stage,
@@ -25,7 +25,7 @@ try:
         generate_fertilizer_plan
     )
 except ImportError:
-    from app.services.fertilizer_service import (
+    from services.fertilizer_service import (
         NPKInput,
         FertilizerRecommendation,
         determine_growth_stage,

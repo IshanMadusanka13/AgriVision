@@ -7,7 +7,7 @@ from ultralytics import YOLO
 from PIL import Image
 
 # ===== LOAD MODEL ONCE =====
-MODEL_PATH = "QualityGradingModel/best.pt"
+MODEL_PATH = "../QualityGradingModel/best.pt"
 
 model = YOLO(MODEL_PATH)
 

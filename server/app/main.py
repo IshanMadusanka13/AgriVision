@@ -2,9 +2,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from app.routes.disease_router import router as upload_router
-from app.routes.growth_router import router as growth_router
-from app.routes.quality_router import router as quality_router
+from routes.disease_router import router as upload_router
+from routes.growth_router import router as growth_router
+from routes.quality_router import router as quality_router
 
 app = FastAPI()
 app.add_middleware(

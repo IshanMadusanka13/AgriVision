@@ -75,7 +75,7 @@ export interface Location {
 // -----------------------
 // API Setup
 // -----------------------
-const API_URL = 'http://192.168.1.2:8000';
+const API_URL = 'http://172.20.10.4:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
