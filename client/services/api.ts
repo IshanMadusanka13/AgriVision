@@ -2,7 +2,9 @@ import axios, { AxiosInstance } from 'axios';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Types
+//-------------------------------------------------
+//-------------------Types-------------------------
+//-------------------------------------------------
 export interface DetectionResult {
   growth_stage: string;
   confidence: number;
@@ -81,6 +83,10 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+
+//-------------------------------------------------
+//-------------------Helpers-----------------------
+//-------------------------------------------------
 // Helper: Create file object from URI
 const createFileFromUri = (imageUri: string) => {
   const filename = imageUri.split('/').pop() || 'photo.jpg';
@@ -109,12 +115,55 @@ const appendOptionalFields = (
   });
 };
 
+export const checkAPIStatus = async (): Promise<boolean> => {
+  try {
+    const response = await api.get('/');
+    return response.status === 200;
+  } catch (error) {
+    return false;
+  }
+};
+
 // Helper: Handle API errors
 const handleApiError = (error: any, context: string): never => {
   console.error(`${context} error:`, error);
   throw error;
 };
 
+
+//-------------------------------------------------
+//-------------------Disease-----------------------
+//-------------------------------------------------
+export const predict_disease = async (imageUri: string): Promise<any> => {
+  try {
+    console.log("Uploading image:", imageUri);
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || 'upload.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    if (Platform.OS === 'web') {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      formData.append('file', blob, filename);
+    } else {
+      formData.append('file', createFileFromUri(imageUri));
+    }
+
+    const response = await api.post('/api/disease/predict', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Disease prediction error:", error);
+    throw error;
+  }
+};
+
+//-------------------------------------------------
+//-------------------Growth------------------------
+//-------------------------------------------------
 export const detectPlant = async (imageUri: string): Promise<DetectionResult> => {
   try {
     const formData = createImageFormData(imageUri);
@@ -214,40 +263,25 @@ export const getWeatherForecast = async (
 };
 
 
-export const checkAPIStatus = async (): Promise<boolean> => {
+//-------------------------------------------------
+//-------------------Quality-----------------------
+//-------------------------------------------------
+export const gradeQuality = async (imageUris: string[]): Promise<any> => {
   try {
-    const response = await api.get('/');
-    return response.status === 200;
-  } catch (error) {
-    return false;
-  }
-};
-
-
-export const predict_disease = async (imageUri: string): Promise<any> => {
-  try {
-    console.log("Uploading image:", imageUri);
     const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'upload.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      formData.append('file', blob, filename);
-    } else {
-      formData.append('file', createFileFromUri(imageUri));
-    }
-
-    const response = await api.post('/api/disease/predict', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    imageUris.forEach((uri, i) => {
+      formData.append('files', createFileFromUri(uri));
     });
 
-    return response.data;
-  } catch (error: any) {
-    console.error("Disease prediction error:", error);
-    throw error;
+    const response = await fetch(`${API_URL}/api/quality/grade`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return handleApiError(error, 'Grade Quality');
   }
 };
 
