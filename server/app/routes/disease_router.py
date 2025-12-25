@@ -8,8 +8,6 @@ import io
 import base64
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Scotch Bonnet Leaf Disease Detection")
-
 class FolderRequest(BaseModel):
     folder_path: str
 

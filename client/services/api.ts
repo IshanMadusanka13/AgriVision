@@ -293,4 +293,5 @@ export default {
   getWeatherForecast,
   checkAPIStatus,
   predict_disease,
+  gradeQuality
 };
