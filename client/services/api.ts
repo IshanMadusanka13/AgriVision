@@ -224,7 +224,7 @@ export const checkAPIStatus = async (): Promise<boolean> => {
 };
 
 
-export const uploadImage = async (imageUri: string): Promise<any> => {
+export const predict_disease = async (imageUri: string): Promise<any> => {
   try {
     console.log("Uploading image:", imageUri);
     const formData = new FormData();
@@ -243,9 +243,11 @@ export const uploadImage = async (imageUri: string): Promise<any> => {
     const response = await api.post('/api/disease/predict', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+
     return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Upload');
+  } catch (error: any) {
+    console.error("Disease prediction error:", error);
+    throw error;
   }
 };
 
@@ -256,5 +258,5 @@ export default {
   getCurrentWeather,
   getWeatherForecast,
   checkAPIStatus,
-  uploadImage,
+  predict_disease,
 };
