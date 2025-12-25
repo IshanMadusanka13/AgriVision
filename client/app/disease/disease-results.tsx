@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,19 +7,61 @@ import {
   Image,
   ScrollView,
   Share,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { predict_disease } from "@/services/api";
+
+interface DiseaseResult {
+  annotatedImage?: string;
+  diagnosis?: string;
+  confidence?: number;
+  severity?: string;
+  recommendations?: string[];
+  status?: string;
+}
 
 export default function DiseaseResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { imageUri } = params;
   
-  const { annotatedImage, diagnosis, confidence, severity, recommendations } = params;
-  
-  // Parse recommendations from JSON string
-  const recommendationsList = recommendations 
-    ? JSON.parse(recommendations as string) 
-    : [];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<DiseaseResult | null>(null);
+
+  useEffect(() => {
+    const analyzeImage = async () => {
+      if (!imageUri) {
+        setError("No image provided");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const analysisResult = await predict_disease(imageUri as string);
+        
+        if (analysisResult.status === "no_leaf_detected") {
+          setError("No plant leaf detected in the image. Please try again with a clearer image of the affected area.");
+          setLoading(false);
+          return;
+        }
+
+        setResult(analysisResult);
+      } catch (err: any) {
+        console.error("Analysis error:", err);
+        setError(err.message || "Failed to analyze image. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    analyzeImage();
+  }, [imageUri]);
 
   const getSeverityColor = (sev: string) => {
     switch (sev?.toLowerCase()) {
@@ -42,19 +84,70 @@ export default function DiseaseResultsScreen() {
   };
 
   const handleShare = async () => {
+    if (!result) return;
+    
     try {
-      const recommendationsText = recommendationsList.join("\n• ");
+      const recommendationsText = result.recommendations?.join("\n• ") || "";
       await Share.share({
         message: `🔬 Disease Detection Result\n\n` +
-                 `Diagnosis: ${diagnosis}\n` +
-                 `Confidence: ${confidence}%\n` +
-                 `Severity: ${severity}\n\n` +
+                 `Diagnosis: ${result.diagnosis}\n` +
+                 `Confidence: ${result.confidence}%\n` +
+                 `Severity: ${result.severity}\n\n` +
                  `Recommendations:\n• ${recommendationsText}`,
       });
     } catch (error) {
       console.error(error);
     }
   };
+
+  const handleRetry = () => {
+    router.back();
+  };
+
+  // Loading State
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#ef4444" />
+        <Text style={styles.loadingText}>Analyzing image...</Text>
+        <Text style={styles.loadingSubtext}>This may take a few moments</Text>
+      </View>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorIcon}>⚠️</Text>
+        <Text style={styles.errorTitle}>Analysis Failed</Text>
+        <Text style={styles.errorMessage}>{error}</Text>
+        
+        <TouchableOpacity 
+          style={[styles.button, styles.primaryButton]} 
+          onPress={handleRetry}
+        >
+          <Text style={styles.buttonIcon}>🔄</Text>
+          <Text style={[styles.buttonText, styles.primaryButtonText]}>
+            Try Again
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={() => router.push("/(tabs)")}
+        >
+          <Text style={styles.buttonIcon}>🏠</Text>
+          <Text style={styles.buttonText}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Success State
+  if (!result) {
+    return null;
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -64,7 +157,7 @@ export default function DiseaseResultsScreen() {
 
       <View style={styles.imageContainer}>
         <Image 
-          source={{ uri: annotatedImage as string }} 
+          source={{ uri: result.annotatedImage || imageUri as string }} 
           style={styles.image}
           resizeMode="contain"
         />
@@ -73,50 +166,50 @@ export default function DiseaseResultsScreen() {
       <View style={styles.resultsCard}>
         <View style={styles.resultRow}>
           <Text style={styles.resultLabel}>Diagnosis:</Text>
-          <Text style={styles.resultValue}>{diagnosis || "N/A"}</Text>
+          <Text style={styles.resultValue}>{result.diagnosis || "N/A"}</Text>
         </View>
 
         <View style={styles.resultRow}>
           <Text style={styles.resultLabel}>Confidence:</Text>
           <View style={styles.confidenceContainer}>
-            <Text style={styles.resultValue}>{confidence || "N/A"}%</Text>
+            <Text style={styles.resultValue}>{result.confidence || "N/A"}%</Text>
             <View style={styles.confidenceBar}>
               <View 
                 style={[
                   styles.confidenceFill, 
-                  { width: `${(confidence || 0) as unknown as number}%` }
+                  { width: `${result.confidence || 0}%` }
                 ]} 
               />
             </View>
           </View>
         </View>
 
-        {severity && (
+        {result.severity && (
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>Severity:</Text>
             <View style={styles.severityContainer}>
               <Text style={styles.severityIcon}>
-                {getSeverityIcon(severity as string)}
+                {getSeverityIcon(result.severity)}
               </Text>
               <Text 
                 style={[
                   styles.resultValue, 
-                  { color: getSeverityColor(severity as string) }
+                  { color: getSeverityColor(result.severity) }
                 ]}
               >
-                {severity}
+                {result.severity}
               </Text>
             </View>
           </View>
         )}
       </View>
 
-      {recommendationsList.length > 0 && (
+      {result.recommendations && result.recommendations.length > 0 && (
         <View style={styles.recommendationsCard}>
           <Text style={styles.recommendationsTitle}>
             💡 Treatment Recommendations
           </Text>
-          {recommendationsList.map((rec: string, index: number) => (
+          {result.recommendations.map((rec: string, index: number) => (
             <View key={index} style={styles.recommendationItem}>
               <Text style={styles.recommendationBullet}>•</Text>
               <Text style={styles.recommendationText}>{rec}</Text>
@@ -158,6 +251,43 @@ export default function DiseaseResultsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f9fafb" },
+  centerContainer: {
+    flex: 1,
+    backgroundColor: "#f9fafb",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginTop: 16,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#dc2626",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 32,
+    lineHeight: 24,
+  },
   header: { 
     padding: 20, 
     backgroundColor: "#fff", 

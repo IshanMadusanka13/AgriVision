@@ -6,26 +6,13 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { predict_disease } from "@/services/api";
-
-interface DiseaseResult {
-  diagnosis?: string;
-  confidence?: number;
-  severity?: string;
-  recommendations?: string[];
-  annotatedImage?: string;
-  [key: string]: any;
-}
 
 export default function DiseaseCameraScreen() {
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [diseaseResult, setDiseaseResult] = useState<DiseaseResult | null>(null);
 
   const requestCameraPermission = async (): Promise<boolean> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -57,7 +44,6 @@ export default function DiseaseCameraScreen() {
       });
       if (!result.canceled) {
         setSelectedImage(result.assets[0].uri);
-        setDiseaseResult(null);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to take photo");
@@ -77,7 +63,6 @@ export default function DiseaseCameraScreen() {
       });
       if (!result.canceled) {
         setSelectedImage(result.assets[0].uri);
-        setDiseaseResult(null);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to select photo");
@@ -85,53 +70,26 @@ export default function DiseaseCameraScreen() {
     }
   };
 
-  const handleDetect = async () => {
+  const handleAnalyze = () => {
     if (!selectedImage) {
       Alert.alert("No Image", "Please take or select a photo first");
       return;
     }
-    setLoading(true);
-    try {
-      const result = await predict_disease(selectedImage);
-      
-      if (result?.annotatedImage) {
-        // Navigate to results page with all data
-        router.push({
-          pathname: "/disease/disease-results",
-          params: {
-            annotatedImage: result.annotatedImage,
-            diagnosis: result.diagnosis || "Unknown",
-            confidence: result.confidence?.toString() || "0",
-            severity: result.severity || "N/A",
-            recommendations: JSON.stringify(result.recommendations || []),
-          },
-        });
-      }
-    } catch (error: any) {
-      const errorMessage = error.message || "Failed to analyze image";
-      Alert.alert("Detection Failed", errorMessage, [{ text: "OK" }]);
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    
+    // Navigate to results page with the image URI
+    router.push({
+      pathname: "/disease/disease-results",
+      params: {
+        imageUri: selectedImage,
+      },
+    });
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.previewContainer}>
         {selectedImage ? (
-          <>
-            <Image source={{ uri: selectedImage }} style={styles.image} />
-            {diseaseResult && (
-              <View style={styles.resultOverlay}>
-                <Text style={styles.resultText}>🩺 {diseaseResult.diagnosis ?? "No diagnosis"}</Text>
-                {diseaseResult.severity && <Text style={styles.resultText}>Severity: {diseaseResult.severity}</Text>}
-                {typeof diseaseResult.confidence !== "undefined" && (
-                  <Text style={styles.resultText}>Confidence: {diseaseResult.confidence}%</Text>
-                )}
-              </View>
-            )}
-          </>
+          <Image source={{ uri: selectedImage }} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderIcon}>🔬</Text>
@@ -157,25 +115,15 @@ export default function DiseaseCameraScreen() {
           <>
             <TouchableOpacity 
               style={[styles.button, styles.primaryButton]} 
-              onPress={handleDetect} 
-              disabled={loading}
+              onPress={handleAnalyze}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Text style={styles.buttonIcon}>🔍</Text>
-                  <Text style={[styles.buttonText, styles.primaryButtonText]}>Analyze</Text>
-                </>
-              )}
+              <Text style={styles.buttonIcon}>🔍</Text>
+              <Text style={[styles.buttonText, styles.primaryButtonText]}>Analyze</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.button} 
-              onPress={() => { 
-                setSelectedImage(null); 
-                setDiseaseResult(null); 
-              }}
+              onPress={() => setSelectedImage(null)}
             >
               <Text style={styles.buttonIcon}>🔄</Text>
               <Text style={styles.buttonText}>Retake</Text>
@@ -212,15 +160,6 @@ const styles = StyleSheet.create({
   placeholder: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
   placeholderIcon: { fontSize: 64, marginBottom: 16 },
   placeholderText: { fontSize: 16, color: "#6b7280", textAlign: "center", lineHeight: 24 },
-  resultOverlay: { 
-    position: "absolute", 
-    top: 16, 
-    left: 16, 
-    backgroundColor: "rgba(239,68,68,0.95)", 
-    padding: 12, 
-    borderRadius: 8 
-  },
-  resultText: { color: "#fff", fontSize: 14, fontWeight: "600", marginBottom: 4 },
   buttonContainer: { padding: 16, gap: 12 },
   button: {
     flexDirection: "row",
