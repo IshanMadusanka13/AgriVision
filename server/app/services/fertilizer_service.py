@@ -3,8 +3,12 @@ Fertilizer Recommendation Service
 NPK analysis සහ growth stage අනුව fertilizer recommendations generate කරන service එක
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel
+import cv2
+import numpy as np
+from datetime import datetime
+import os
 
 
 # Models
@@ -21,30 +25,96 @@ class FertilizerRecommendation(BaseModel):
     tips: List[str]
 
 
-def determine_growth_stage(leaves: int, flowers: int, fruits: int) -> tuple:
+class DetectionCounts(BaseModel):
+    flower: int
+    fruit: int
+    leaf: int
+    ripening: int
+
+
+def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str]:
     """
-    Detection counts වලින් growth stage determine කරන function එක
+    Image එකෙන් YOLO detection කරලා growth stage determine කරන function එක
+
+    Args:
+        img: OpenCV image (numpy array)
+        model: YOLO model instance
 
     Returns:
-        tuple: (growth_stage, confidence)
+        tuple: (growth_stage, confidence, counts, debug_image_path)
+            - growth_stage: වර්ධන අවධිය (early_vegetative, vegetative, flowering, fruiting, unknown)
+            - confidence: විශ්වාසනීයත්වය (0-100)
+            - counts: DetectionCounts object with all counts
+            - debug_image_path: Annotated image path (හෝ empty string)
     """
-    total_detections = leaves + flowers + fruits
+    if img is None:
+        return "unknown", 0.0, DetectionCounts(flower=0, fruit=0, leaf=0, ripening=0), ""
+
+    # Debugging: පින්තූරය save කිරීම
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    debug_dir = "app/debug_images"
+    os.makedirs(debug_dir, exist_ok=True)
+
+    # Input image save කිරීම
+    input_path = os.path.join(debug_dir, f"input_{timestamp}.jpg")
+    cv2.imwrite(input_path, img)
+
+    # Model එක හරහා පරීක්ෂා කිරීම (Inference)
+    results = model.predict(img, conf=0.5)
+
+    # භාජන (Counters) සකස් කිරීම
+    counts = {
+        "flower": 0,    # ID: 0
+        "fruit": 0,     # ID: 1
+        "leaf": 0,      # ID: 2
+        "ripening": 0   # ID: 3
+    }
+
+    # හඳුනාගත් දේවල් ගණනය කිරීම
+    for result in results:
+        for box in result.boxes:
+            cls_id = int(box.cls[0])
+            label = model.names[cls_id].lower()
+            if label in counts:
+                counts[label] += 1
+
+    # පරීක්ෂා කළ පින්තූරය (Boxes සහිතව) save කිරීම
+    annotated_img = results[0].plot()
+    output_path = os.path.join(debug_dir, f"output_{timestamp}.jpg")
+    cv2.imwrite(output_path, annotated_img)
+
+    # සාමාන්‍ය විශ්වාසනීයත්වය (Confidence Score)
+    avg_conf = float(results[0].boxes.conf.mean()) if len(results[0].boxes) > 0 else 0.0
+
+    # Scotch Bonnet ද යන්න තහවුරු කිරීම
+    # පත්‍ර (Leaf) තිබේ නම් පමණක් නයි මිරිස් ලෙස සලකයි
+    is_scotch_bonnet = counts["leaf"] > 0
+
+    if not is_scotch_bonnet:
+        return "unknown", 0.0, DetectionCounts(**counts), output_path
+
+    # වර්ධන අවධිය තීරණය කිරීම
+    total_detections = counts["leaf"] + counts["flower"] + counts["fruit"]
 
     if total_detections == 0:
-        return "unknown", 0.0
+        return "unknown", 0.0, DetectionCounts(**counts), output_path
 
     # Confidence calculation
-    confidence = min(total_detections / 20, 1.0) * 100
+    confidence = min(avg_conf * 100, 100.0)
 
-    # Growth stage logic
-    if fruits > 0:
-        return "fruiting", confidence
-    elif flowers > 0:
-        return "flowering", confidence
-    elif leaves > 5:
-        return "vegetative", confidence
+    # Growth stage logic (ප්‍රමුඛතාවය අනුව)
+    if counts["ripening"] > 0:
+        growth_stage = "ripening"
+    elif counts["fruit"] > 0:
+        growth_stage = "fruiting"
+    elif counts["flower"] > 0:
+        growth_stage = "flowering"
+    elif counts["leaf"] > 5:
+        growth_stage = "vegetative"
     else:
-        return "early_vegetative", confidence
+        growth_stage = "early_vegetative"
+
+    return growth_stage, confidence, DetectionCounts(**counts), output_path
 
 
 def analyze_npk_levels(npk: NPKInput, growth_stage: str) -> Dict:
@@ -66,6 +136,7 @@ def analyze_npk_levels(npk: NPKInput, growth_stage: str) -> Dict:
         "vegetative": {"N": (100, 150), "P": (80, 120), "K": (120, 180)},
         "flowering": {"N": (60, 100), "P": (120, 180), "K": (180, 250)},
         "fruiting": {"N": (50, 80), "P": (100, 150), "K": (200, 300)},
+        "ripening": {"N": (30, 60), "P": (80, 120), "K": (220, 320)},
         "unknown": {"N": (80, 120), "P": (80, 120), "K": (120, 180)}  # Default ranges
     }
 
@@ -315,6 +386,47 @@ def generate_fertilizer_plan(
             "ගෙඩි රතු වෙන අවධියේ Nitrogen අඩු කරන්න.",
             "Magnesium හිඟයක් තියෙනවනම් පළල් කහ වෙනවා - Epsom salt use කරන්න පුළුවන්.",
             "සතියකට පාර 2-3 organic compost tea spray එකක් කරන්න පුළුවන්."
+        ])
+
+    elif growth_stage == "ripening":
+        base_plan = [
+            {
+                "day": "සඳුදා",
+                "fertilizer_type": "Potassium Sulphate (0-0-50)",
+                "amount": "15-20 grams per plant",
+                "method": "මුල අවට විසිරවීම",
+                "watering": "හොඳින් වතුර දෙන්න"
+            },
+            {
+                "day": "බ්‍රහස්පතින්දා",
+                "fertilizer_type": "Calcium + Boron foliar spray",
+                "amount": "5-7ml per liter water",
+                "method": "foliar spray - හවස වරුවේ spray කරන්න",
+                "watering": "spray කරලා වතුර දෙන්න එපා"
+            }
+        ]
+
+        # NPK adjustments
+        if npk_status["nitrogen"]["level"] == "high":
+            warnings.append("⚠️ Nitrogen මට්ටම වැඩියි! Ripening අවධියේ Nitrogen අඩු කරන්න - ගෙඩි රතු වීම slow වෙනවා.")
+
+        if npk_status["potassium"]["level"] == "low":
+            base_plan.insert(1, {
+                "day": "බදාදා",
+                "fertilizer_type": "Muriate of Potash (0-0-60)",
+                "amount": "18-22 grams per plant",
+                "method": "මුල අවට විසිරවීම",
+                "watering": "හොඳින් වතුර දෙන්න"
+            })
+            warnings.append("Potassium මට්ටම ඉතා අඩුයි! Ripening සඳහා extra potassium add කරලා තියෙනවා.")
+
+        tips.extend([
+            "Ripening අවධියේ Nitrogen අඩුවෙන්, Potassium වැඩියෙන් යොදන්න.",
+            "ගෙඩි රතු පාට වැඩි කරන්න Potassium (K) ඉතා වැදගත්.",
+            "Calcium spray එක ගෙඩි ගබඩා කිරීමේ ආයු කාලය වැඩි කරනවා.",
+            "මෙම අවධියේ වතුර දීම මද වශයෙන් අඩු කරන්න - ගෙඩි රස වැඩි වෙනවා.",
+            "අස්වනු නෙලීමට සති 1-2 කට පෙර සියලු පොහොර නවත්වන්න.",
+            "Boron හිඟයක් තියෙනවනම් ගෙඩි කුඩා වෙනවා - Borax spray එකක් කරන්න පුළුවන්."
         ])
 
     else:

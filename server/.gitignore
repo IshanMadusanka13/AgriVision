@@ -43,3 +43,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Debug directories
+app/debug_images/
+app/debug_results/
