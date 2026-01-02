@@ -50,8 +50,8 @@ except ImportError:
 
 router = APIRouter()
 
-# Load YOLOv8 model (දැනට pretrained model එකක් use කරනවා - ඔයාගේ custom trained model path එක දාන්න)
-MODEL_PATH = os.getenv("MODEL_PATH", "best.pt")  # ඔයාගේ trained model path එක මෙතන දාන්න
+# Load YOLOv8 model (set MODEL_PATH in .env or use default best.pt)
+MODEL_PATH = os.getenv("MODEL_PATH", "best.pt")
 try:
     # Set torch.load to use weights_only=False for loading custom YOLO models
     # This is safe because we trust our own trained model
@@ -60,8 +60,8 @@ try:
     print(f"✓ Model loaded successfully from {MODEL_PATH}")
 except Exception as e:
     model = None
-    print(f"YOLOv8 model load වෙන්නේ නැහැ. Error: {str(e)}")
-    print(f"Model path එක check කරන්න: {MODEL_PATH}")
+    print(f"Failed to load YOLOv8 model. Error: {str(e)}")
+    print(f"Please check model path: {MODEL_PATH}")
 
 
 class FertilizerRequest(BaseModel):
@@ -129,18 +129,18 @@ async def get_forecast(latitude: float, longitude: float, days: int = 7):
 @router.post("/detect", response_model=DetectionResult)
 async def detect_plant(file: UploadFile = File(...)):
     if not model:
-        raise HTTPException(status_code=500, detail="YOLOv8 model එක පද්ධතිය තුළ නැත.")
+        raise HTTPException(status_code=500, detail="YOLOv8 model is not loaded in the system.")
 
     try:
-        # පින්තූරය කියවීම (Read Image)
+        # Read uploaded image
         contents = await file.read()
         nparr = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         if img is None:
-            raise HTTPException(status_code=400, detail="Image එක කියවිය නොහැක.")
+            raise HTTPException(status_code=400, detail="Failed to read image file.")
 
-        # determine_growth_stage function එක use කරලා detection සහ stage determine කිරීම
+        # Use determine_growth_stage function to perform detection and determine growth stage
         growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img, model)
 
         # Convert stage key to readable format
@@ -154,17 +154,7 @@ async def detect_plant(file: UploadFile = File(...)):
         }
         growth_stage = stage_map.get(growth_stage_key, "Unknown Stage")
 
-        # Scotch Bonnet plant නැත්නම්
-        if growth_stage_key == "unknown":
-            return DetectionResult(
-                growth_stage=growth_stage,
-                leaves_count=counts.leaf,
-                flowers_count=counts.flower,
-                fruits_count=counts.fruit,
-                confidence=round(confidence / 100, 4)
-            )
-
-        # අවසන් ප්‍රතිඵලය ලබා දීම
+        # Return result (handles both detected and undetected plants)
         return DetectionResult(
             growth_stage=growth_stage,
             leaves_count=counts.leaf,
@@ -174,7 +164,7 @@ async def detect_plant(file: UploadFile = File(...)):
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"හඳුනාගැනීමේ දෝෂයක්: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
 
 @router.post("/recommend", response_model=FertilizerRecommendation)

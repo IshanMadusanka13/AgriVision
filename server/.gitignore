@@ -45,5 +45,4 @@ Thumbs.db
 *.log
 
 # Debug directories
-app/debug_images/
-app/debug_results/
+app/app/debug_images/

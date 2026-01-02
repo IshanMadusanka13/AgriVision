@@ -1,6 +1,6 @@
 """
 Weather API Integration Service
-OpenWeatherMap API use කරලා real-time weather data ගන්න service එක
+Service for fetching real-time weather data using OpenWeatherMap API
 """
 
 import os
@@ -22,18 +22,18 @@ class WeatherService:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or WEATHER_API_KEY
         if not self.api_key:
-            print("⚠️ Warning: OPENWEATHER_API_KEY environment variable නැහැ!")
+            print("⚠️ Warning: OPENWEATHER_API_KEY environment variable not found!")
 
     def get_current_weather(self, lat: float, lon: float) -> Dict:
         """
-        දැන්වීම් coordinates වලට current weather data ගන්නවා
+        Fetches current weather data for the given coordinates
 
         Parameters:
         - lat: Latitude
         - lon: Longitude
 
         Returns:
-        - Weather data dictionary
+        - Weather data dictionary with condition, temperature, humidity, description, and timestamp
         """
         if not self.api_key:
             print("⚠️ Weather API: No API key - using mock data")
@@ -73,15 +73,15 @@ class WeatherService:
 
     def get_weather_forecast(self, lat: float, lon: float, days: int = 7) -> list:
         """
-        දවස් 7ක weather forecast එක ගන්නවා
+        Fetches weather forecast for the specified number of days
 
         Parameters:
         - lat: Latitude
         - lon: Longitude
-        - days: Number of days (max 7 for free tier)
+        - days: Number of days to forecast (max 7 for free tier)
 
         Returns:
-        - List of daily weather forecasts
+        - List of daily weather forecasts with date, condition, temperature, and humidity
         """
         if not self.api_key:
             print(f"⚠️ Weather Forecast API: No API key - using mock data for {days} days")
@@ -176,7 +176,7 @@ class WeatherService:
 
     def _map_weather_condition(self, condition: str) -> str:
         """
-        OpenWeatherMap weather conditions සිංහලට map කරනවා
+        Maps OpenWeatherMap weather conditions to simplified categories
         """
         condition_map = {
             "Clear": "sunny",
@@ -193,19 +193,19 @@ class WeatherService:
 
     def _get_mock_weather(self) -> Dict:
         """
-        API key නැති වෙලාවට mock weather data
+        Returns mock weather data when API key is not available
         """
         return {
             "condition": "sunny",
             "temperature": 28.0,
             "humidity": 65.0,
-            "description": "Mock data - API key නැහැ",
+            "description": "Mock data - No API key configured",
             "timestamp": datetime.now().isoformat()
         }
 
     def _get_mock_forecast(self, days: int) -> list:
         """
-        API key නැති වෙලාවට mock forecast data
+        Returns mock forecast data when API key is not available
         """
         forecasts = []
         base_date = datetime.now().date()

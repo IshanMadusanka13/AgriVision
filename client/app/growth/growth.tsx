@@ -34,7 +34,7 @@ export default function HomeScreen() {
     if (apiStatus === 'offline') {
       Alert.alert(
         'API Offline',
-        'Backend server එක running නැහැ. කරුණාකර backend start කරන්න:\n\ncd backend\npython main.py',
+        'Backend server is not running. Please start the backend:\n\ncd server\npython -m uvicorn main:app --reload',
         [{ text: 'OK' }]
       );
       return;
@@ -74,7 +74,7 @@ export default function HomeScreen() {
           <Text style={styles.featureIcon}>📸</Text>
           <Text style={styles.featureTitle}>Plant Detection</Text>
           <Text style={styles.featureDescription}>
-            YOLOv8 AI model use කරලා leaves, flowers, fruits detect කරනවා
+            Detects leaves, flowers, and fruits using YOLOv8 AI model
           </Text>
         </View>
 
@@ -82,7 +82,7 @@ export default function HomeScreen() {
           <Text style={styles.featureIcon}>🌱</Text>
           <Text style={styles.featureTitle}>Growth Stage</Text>
           <Text style={styles.featureDescription}>
-            Vegetative, flowering, fruiting stages identify කරනවා
+            Identifies vegetative, flowering, fruiting, and ripening stages
           </Text>
         </View>
 
@@ -90,7 +90,7 @@ export default function HomeScreen() {
           <Text style={styles.featureIcon}>🧪</Text>
           <Text style={styles.featureTitle}>NPK Analysis</Text>
           <Text style={styles.featureDescription}>
-            Soil fertilizer levels analyze කරලා recommendations දෙනවා
+            Analyzes soil fertilizer levels and provides recommendations
           </Text>
         </View>
 
@@ -98,7 +98,7 @@ export default function HomeScreen() {
           <Text style={styles.featureIcon}>📅</Text>
           <Text style={styles.featureTitle}>Weekly Plan</Text>
           <Text style={styles.featureDescription}>
-            Weather-adjusted fertilizer schedule එකක් generate කරනවා
+            Generates weather-adjusted fertilizer schedule
           </Text>
         </View>
       </View>
