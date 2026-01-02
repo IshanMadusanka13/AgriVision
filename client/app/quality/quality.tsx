@@ -122,9 +122,9 @@ export default function quality() {
       {/* Instructions */}
       <View style={styles.instructionsContainer}>
         <Text style={styles.sectionTitle}>How to Use</Text>
-        <Text style={styles.instructionText}>1. Upload chilli images clearly</Text>
-        <Text style={styles.instructionText}>2. AI analyzes size, color, and defects</Text>
-        <Text style={styles.instructionText}>3. Chillies are graded automatically</Text>
+        <Text style={styles.instructionText}>1. Upload scotch bonnet images clearly</Text>
+        <Text style={styles.instructionText}>2. Analyzes size, color, and defects</Text>
+        <Text style={styles.instructionText}>3. Scotch bonnet are graded automatically</Text>
         <Text style={styles.instructionText}>4. View quality summary and results</Text>
       </View>
 
