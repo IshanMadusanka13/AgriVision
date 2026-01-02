@@ -104,18 +104,7 @@ export default function UploadQuality() {
       </View>
 
       {/* Toggle: Use first image only */}
-      {images.length > 1 && (
-        <View style={styles.toggleContainer}>
-          <Text style={styles.toggleText}>
-            Use only first image for grading
-          </Text>
-          <Switch
-            value={useFirstOnly}
-            onValueChange={setUseFirstOnly}
-            thumbColor={useFirstOnly ? "#10b981" : "#f59e0b"}
-          />
-        </View>
-      )}
+      
 
       {/* Buttons */}
       <View style={styles.buttonContainer}>
