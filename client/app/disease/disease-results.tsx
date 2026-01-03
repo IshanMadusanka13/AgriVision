@@ -13,11 +13,21 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { predict_disease } from "@/services/api";
 
+interface Detection {
+  disease: string;
+  confidence: number;
+  bbox: number[];
+}
+
 interface DiseaseResult {
   annotatedImage?: string;
   diagnosis?: string;
   confidence?: number;
   severity?: string;
+  total_detections?: number;
+  detections?: Detection[];
+  disease_summary?: Record<string, number>;
+  conclusion?: string;
   recommendations?: string[];
   status?: string;
 }
@@ -87,12 +97,22 @@ export default function DiseaseResultsScreen() {
     if (!result) return;
     
     try {
+      const diseaseSummary = result.disease_summary 
+        ? Object.entries(result.disease_summary)
+            .map(([disease, count]) => `${disease}: ${count}`)
+            .join("\n• ")
+        : "";
+      
       const recommendationsText = result.recommendations?.join("\n• ") || "";
+      
       await Share.share({
-        message: `🔬 Disease Detection Result\n\n` +
-                 `Diagnosis: ${result.diagnosis}\n` +
+        message: `🔬 Disease Detection Results\n\n` +
+                 `Total Detections: ${result.total_detections}\n` +
+                 `Primary Diagnosis: ${result.diagnosis}\n` +
                  `Confidence: ${result.confidence}%\n` +
-                 `Severity: ${result.severity}\n\n` +
+                 `Overall Severity: ${result.severity}\n\n` +
+                 `Disease Summary:\n• ${diseaseSummary}\n\n` +
+                 `Conclusion: ${result.conclusion}\n\n` +
                  `Recommendations:\n• ${recommendationsText}`,
       });
     } catch (error) {
@@ -110,7 +130,7 @@ export default function DiseaseResultsScreen() {
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#ef4444" />
         <Text style={styles.loadingText}>Analyzing image...</Text>
-        <Text style={styles.loadingSubtext}>This may take a few moments</Text>
+        <Text style={styles.loadingSubtext}>Detecting all disease instances</Text>
       </View>
     );
   }
@@ -153,6 +173,11 @@ export default function DiseaseResultsScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🔬 Analysis Results</Text>
+        {result.total_detections && result.total_detections > 0 && (
+          <Text style={styles.headerSubtitle}>
+            {result.total_detections} detection{result.total_detections > 1 ? 's' : ''} found
+          </Text>
+        )}
       </View>
 
       <View style={styles.imageContainer}>
@@ -163,9 +188,18 @@ export default function DiseaseResultsScreen() {
         />
       </View>
 
+      {result.conclusion && (
+        <View style={styles.conclusionCard}>
+          <Text style={styles.conclusionIcon}>📋</Text>
+          <Text style={styles.conclusionText}>{result.conclusion}</Text>
+        </View>
+      )}
+
       <View style={styles.resultsCard}>
+        <Text style={styles.cardTitle}>Summary</Text>
+        
         <View style={styles.resultRow}>
-          <Text style={styles.resultLabel}>Diagnosis:</Text>
+          <Text style={styles.resultLabel}>Primary Diagnosis:</Text>
           <Text style={styles.resultValue}>{result.diagnosis || "N/A"}</Text>
         </View>
 
@@ -186,7 +220,7 @@ export default function DiseaseResultsScreen() {
 
         {result.severity && (
           <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Severity:</Text>
+            <Text style={styles.resultLabel}>Overall Severity:</Text>
             <View style={styles.severityContainer}>
               <Text style={styles.severityIcon}>
                 {getSeverityIcon(result.severity)}
@@ -203,6 +237,40 @@ export default function DiseaseResultsScreen() {
           </View>
         )}
       </View>
+
+      {result.disease_summary && Object.keys(result.disease_summary).length > 0 && (
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardTitle}>Disease Breakdown</Text>
+          {Object.entries(result.disease_summary).map(([disease, count], index) => (
+            <View key={index} style={styles.summaryItem}>
+              <Text style={styles.summaryDisease}>{disease}</Text>
+              <View style={styles.summaryBadge}>
+                <Text style={styles.summaryCount}>{count}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {result.detections && result.detections.length > 0 && (
+        <View style={styles.detectionsCard}>
+          <Text style={styles.cardTitle}>All Detections</Text>
+          {result.detections.map((detection, index) => (
+            <View key={index} style={styles.detectionItem}>
+              <View style={styles.detectionHeader}>
+                <Text style={styles.detectionNumber}>#{index + 1}</Text>
+                <Text style={styles.detectionDisease}>{detection.disease}</Text>
+              </View>
+              <View style={styles.detectionConfidence}>
+                <Text style={styles.detectionConfidenceLabel}>Confidence:</Text>
+                <Text style={styles.detectionConfidenceValue}>
+                  {detection.confidence}%
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {result.recommendations && result.recommendations.length > 0 && (
         <View style={styles.recommendationsCard}>
@@ -300,6 +368,12 @@ const styles = StyleSheet.create({
     color: "#1f2937", 
     textAlign: "center" 
   },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    marginTop: 4,
+  },
   imageContainer: {
     margin: 16,
     backgroundColor: "#fff",
@@ -312,6 +386,28 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   image: { width: "100%", height: 400 },
+  conclusionCard: {
+    margin: 16,
+    marginBottom: 8,
+    backgroundColor: "#eff6ff",
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  conclusionIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  conclusionText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#1e40af",
+    fontWeight: "600",
+    lineHeight: 22,
+  },
   resultsCard: {
     margin: 16,
     marginBottom: 8,
@@ -323,6 +419,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1f2937",
+    marginBottom: 16,
   },
   resultRow: { 
     flexDirection: "row", 
@@ -368,6 +470,96 @@ const styles = StyleSheet.create({
   },
   severityIcon: {
     fontSize: 20,
+  },
+  summaryCard: {
+    margin: 16,
+    marginTop: 8,
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  summaryItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  summaryDisease: {
+    fontSize: 15,
+    color: "#374151",
+    flex: 1,
+  },
+  summaryBadge: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    minWidth: 32,
+    alignItems: "center",
+  },
+  summaryCount: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  detectionsCard: {
+    margin: 16,
+    marginTop: 8,
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detectionItem: {
+    backgroundColor: "#f9fafb",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  detectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  detectionNumber: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6b7280",
+    backgroundColor: "#e5e7eb",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  detectionDisease: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1f2937",
+    flex: 1,
+  },
+  detectionConfidence: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  detectionConfidenceLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+  },
+  detectionConfidenceValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#10b981",
   },
   recommendationsCard: {
     margin: 16,

@@ -33,18 +33,66 @@ async def predict(file: UploadFile = File(...)):
     img_byte_arr.seek(0)
     img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
 
-    # Return both image and prediction data as JSON
+    # Get comprehensive recommendations based on all detected diseases
+    all_recommendations = []
+    unique_diseases = set()
+    
+    for detection in result.get("detections", []):
+        disease = detection["disease"]
+        if disease not in unique_diseases:
+            unique_diseases.add(disease)
+            disease_recs = get_recommendations(disease)
+            all_recommendations.extend(disease_recs)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_recommendations = []
+    for rec in all_recommendations:
+        if rec not in seen:
+            seen.add(rec)
+            unique_recommendations.append(rec)
+
+    # Determine overall severity
+    overall_severity = get_overall_severity(result.get("detections", []))
+
+    # Return comprehensive response
     return JSONResponse(content={
         "annotatedImage": f"data:image/png;base64,{img_base64}",
-        "diagnosis": result.get("prediction", "Unknown"),
-        "confidence": result.get("confidence", 0),
-        "severity": get_severity(result.get("prediction", "Unknown")),
-        "recommendations": get_recommendations(result.get("prediction", "Unknown")),
+        "diagnosis": result.get("primary_disease", "Unknown"),
+        "confidence": result.get("primary_confidence", 0),
+        "severity": overall_severity,
+        "total_detections": result.get("total_detections", 0),
+        "detections": result.get("detections", []),
+        "disease_summary": result.get("disease_summary", {}),
+        "conclusion": result.get("conclusion", ""),
+        "recommendations": unique_recommendations,
         "status": result.get("status", "success")
     })
 
-def get_severity(disease_name: str) -> str:
-    """Determine severity based on disease type"""
+
+def get_overall_severity(detections: list) -> str:
+    """Determine overall severity based on all detections"""
+    if not detections:
+        return "None"
+    
+    severity_scores = []
+    for detection in detections:
+        disease = detection["disease"]
+        severity_scores.append(get_disease_severity_level(disease))
+    
+    # Return highest severity found
+    if "High" in severity_scores:
+        return "High"
+    elif "Moderate" in severity_scores:
+        return "Moderate"
+    elif "Low" in severity_scores:
+        return "Low"
+    else:
+        return "None"
+
+
+def get_disease_severity_level(disease_name: str) -> str:
+    """Determine severity level for a disease"""
     severe_diseases = ["bacterial_leaf_spot", "cercospora_leaf_spot"]
     moderate_diseases = ["leaf_curl", "powdery_mildew"]
     
@@ -54,10 +102,16 @@ def get_severity(disease_name: str) -> str:
         return "High"
     elif any(moderate in disease_lower for moderate in moderate_diseases):
         return "Moderate"
-    elif "healthy" in disease_lower or "nothing" in disease_lower or "no_detection" in disease_lower or "no-detection" in disease_lower:
+    elif "healthy" in disease_lower or "nothing" in disease_lower:
         return "None"
     else:
         return "Low"
+
+
+def get_severity(disease_name: str) -> str:
+    """Determine severity based on disease type (kept for backward compatibility)"""
+    return get_disease_severity_level(disease_name)
+
 
 def get_recommendations(disease_name: str) -> list:
     """Get treatment recommendations based on disease"""
@@ -66,7 +120,7 @@ def get_recommendations(disease_name: str) -> list:
             "Remove and destroy heavily infected leaves",
             "Improve plant nutrition and avoid excessive nitrogen",
             "Prune infected areas and dispose of debris",
-            "Control vectors if disease is vector‑transmitted",
+            "Control vectors if disease is vector-transmitted",
             "Monitor nearby plants and rotate crops when possible"
         ],
         "bacterial_leaf_spot": [
@@ -116,7 +170,6 @@ def get_recommendations(disease_name: str) -> list:
         "Consider consulting a local agricultural extension",
         "Maintain good plant hygiene"
     ]
-
 
 
 @router.post("/predict-folder")
