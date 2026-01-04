@@ -38,8 +38,6 @@ wheels/
 Thumbs.db
 
 # YOLO models (can be large)
-*.pt
-!yolov8n.pt
 
 # Logs
 *.log
