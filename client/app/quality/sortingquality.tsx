@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams ,useRouter } from "expo-router";
 import Svg, { Rect, Text as SvgText, G, Path } from "react-native-svg";
 
 export default function SortingQuality() {
@@ -104,9 +104,10 @@ export default function SortingQuality() {
 
     startAngle = endAngle;
   });
-
+  
+const router = useRouter();
   const handleAnalysis = () => {
-    Alert.alert("View Analysis", "Navigation or analysis logic goes here.");
+    router.push("/quality/batchanalysis");
   };
 
   return (
