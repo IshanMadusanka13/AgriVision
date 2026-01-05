@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
+  ScrollView,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -81,13 +82,6 @@ export default function HomeScreen() {
       color: '#10b981',
     },
     {
-      title: 'Analysis History',
-      description: 'View past analyses',
-      icon: '📊',
-      route: '/growth/history',
-      color: '#3b82f6',
-    },
-    {
       title: 'Disease Detection',
       description: 'Identify plant diseases',
       icon: '🔬',
@@ -101,6 +95,20 @@ export default function HomeScreen() {
       route: '/',
       color: '#6b7280',
     },
+    {
+      title: 'Coming Soon',
+      description: 'Feature in development',
+      icon: '🚧',
+      route: '/',
+      color: '#6b7280',
+    },
+    {
+      title: 'Analysis History',
+      description: 'View past analyses',
+      icon: '📊',
+      route: '/growth/history',
+      color: '#3b82f6',
+    }
   ];
 
   const handleNavigation = (route: string) => {
@@ -114,52 +122,57 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.title}>AgriVision</Text>
-            <Text style={styles.subtitle}>AI-Powered Agriculture Assistant</Text>
-          </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-        {userName && (
-          <Text style={styles.welcomeUser}>Welcome back, {userName}!</Text>
-        )}
-      </View>
-
-      {/* Main Content */}
-      <View style={styles.content}>
-        <Text style={styles.welcomeText}>
-          Welcome to AgriVision. Select a feature to get started.
-        </Text>
-
-        {/* Menu Grid */}
-        <View style={styles.menuGrid}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.menuCard, { borderTopColor: item.color }]}
-              onPress={() => handleNavigation(item.route)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}>
-                <Text style={styles.icon}>{item.icon}</Text>
-              </View>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuDescription}>{item.description}</Text>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.title}>AgriVision</Text>
+              <Text style={styles.subtitle}>AI-Powered Agriculture Assistant</Text>
+            </View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+          {userName && (
+            <Text style={styles.welcomeUser}>Welcome back, {userName}!</Text>
+          )}
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Powered by YOLOv8 AI</Text>
-          <Text style={styles.footerText}>v1.0.0</Text>
+        {/* Main Content */}
+        <View style={styles.content}>
+          <Text style={styles.welcomeText}>
+            Welcome to AgriVision. Select a feature to get started.
+          </Text>
+
+          {/* Menu Grid */}
+          <View style={styles.menuGrid}>
+            {menuItems.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.menuCard, { borderTopColor: item.color }]}
+                onPress={() => handleNavigation(item.route)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}>
+                  <Text style={styles.icon}>{item.icon}</Text>
+                </View>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                <Text style={styles.menuDescription}>{item.description}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Powered by YOLOv8 AI</Text>
+            <Text style={styles.footerText}>v1.0.0</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -168,6 +181,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
