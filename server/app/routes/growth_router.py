@@ -261,8 +261,63 @@ async def full_analysis(
         save_to_db: Whether to save to database (default: True)
     """
     try:
-        # Perform detection
-        detection = await detect_plant(file)
+        # Save uploaded file temporarily for processing
+        import tempfile
+        import shutil
+        import cv2
+        import numpy as np
+        import os
+
+        # Read file contents
+        contents = await file.read()
+
+        # Save to temp file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+        temp_file.write(contents)
+        temp_file.close()
+        temp_file_path = temp_file.name
+
+        # Perform detection using the temp file
+        nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            raise HTTPException(status_code=400, detail="Failed to read image file.")
+
+        # Use determine_growth_stage function to perform detection
+        # This returns debug_image_path which contains the annotated image
+        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img, model)
+
+        # Save annotated image path for later upload
+        annotated_image_path = debug_image_path if debug_image_path else None
+
+        # Convert stage key to readable format
+        stage_map = {
+            "early_vegetative": "Early Vegetative Stage",
+            "vegetative": "Vegetative Stage",
+            "flowering": "Flowering Stage",
+            "fruiting": "Fruiting Stage",
+            "ripening": "Ripening/Harvesting Stage",
+            "unknown": "Unknown (Not a Scotch Bonnet plant)"
+        }
+        growth_stage = stage_map.get(growth_stage_key, "Unknown Stage")
+
+        # Create detection result
+        from pydantic import BaseModel
+        class DetectionResult(BaseModel):
+            growth_stage: str
+            leaves_count: int
+            flowers_count: int
+            fruits_count: int
+            confidence: float
+
+        detection = DetectionResult(
+            growth_stage=growth_stage,
+            leaves_count=counts.leaf,
+            flowers_count=counts.flower,
+            fruits_count=counts.fruit,
+            confidence=round(confidence / 100, 4)
+        )
 
         # Prepare NPK input
         npk_input = NPKInput(
@@ -331,9 +386,44 @@ async def full_analysis(
                         "current_weather": current_weather
                     }
 
+                    # Upload original image to Supabase Storage
+                    original_image_url = None
+                    annotated_image_url = None
+
+                    try:
+                        # Upload original image
+                        original_image_url = supabase_service.upload_image(
+                            temp_file_path,
+                            bucket_name="plant-images",
+                            user_id=user_id
+                        )
+                        if original_image_url:
+                            print(f"✓ Original image uploaded: {original_image_url}")
+                    except Exception as img_error:
+                        print(f"⚠ Original image upload failed: {img_error}")
+
+                    try:
+                        # Upload annotated image (with YOLO detections)
+                        if annotated_image_path and os.path.exists(annotated_image_path):
+                            annotated_image_url = supabase_service.upload_image(
+                                annotated_image_path,
+                                bucket_name="plant-images",
+                                user_id=user_id
+                            )
+                            if annotated_image_url:
+                                print(f"✓ Annotated image uploaded: {annotated_image_url}")
+
+                            # Clean up annotated image file
+                            try:
+                                os.unlink(annotated_image_path)
+                            except:
+                                pass
+                    except Exception as img_error:
+                        print(f"⚠ Annotated image upload failed: {img_error}")
+
                     image_urls = {
-                        "original_image_url": None,  # TODO: Implement image upload
-                        "annotated_image_url": None
+                        "original_image_url": original_image_url,
+                        "annotated_image_url": annotated_image_url
                     }
 
                     growth_stage_data = {
@@ -384,6 +474,13 @@ async def full_analysis(
                 print(f"⚠ Database save failed (continuing): {str(db_error)}")
                 import traceback
                 traceback.print_exc()
+
+        # Clean up temporary file
+        try:
+            import os
+            os.unlink(temp_file_path)
+        except:
+            pass
 
         return {
             "success": True,
