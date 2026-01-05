@@ -1,0 +1,18 @@
+{
+  "warnings": [
+    "\ud83c\udf27\ufe0f Monday - Rainy weather, fertilizer amount reduced",
+    "\u26a0\ufe0f Plant not detected! Providing a general fertilizer plan.",
+    "\u26a0\ufe0f 3 rainy days expected this week! Ensure proper drainage.",
+    "Upload a clear plant photo for better recommendations.",
+    "Test"
+  ],
+  "tips": [
+    "\ud83d\udcc5 Fertilizer amounts have been adjusted for each day based on the weekly weather forecast.",
+    "Manually check plant growth stage and choose from the above recommendations.",
+    "Apply organic mulch during rainy weeks - it reduces soil erosion.",
+    "Balanced NPK fertilizer is good for general growth.",
+    "Regular organic compost application improves soil quality.",
+    "\u2705 Soil pH (6.5) is in the optimal range!",
+    "Take a photo with clear leaves, flowers, or fruits for growth stage detection."
+  ]
+}

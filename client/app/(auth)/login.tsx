@@ -53,13 +53,24 @@ export default function LoginScreen() {
         await AsyncStorage.setItem('userEmail', data.user.email);
         await AsyncStorage.setItem('userName', data.user.name || '');
         await AsyncStorage.setItem('userId', data.user.id);
+        await AsyncStorage.setItem('userData', JSON.stringify(data.user));
 
-        Alert.alert('Success', 'Login successful!', [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ]);
+        // Check if user is admin and redirect accordingly
+        if (data.user.role === 'admin') {
+          Alert.alert('Success', 'Welcome Admin!', [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/admin/dashboard'),
+            },
+          ]);
+        } else {
+          Alert.alert('Success', 'Login successful!', [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(tabs)'),
+            },
+          ]);
+        }
       }
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'An error occurred');

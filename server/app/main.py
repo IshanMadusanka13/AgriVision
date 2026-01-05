@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from routes.disease_router import router as upload_router
 from routes.growth_router import router as growth_router
 from routes.auth_router import router as auth_router
+from routes.admin_router import router as admin_router
 
 app = FastAPI(title="AgriVision API", version="1.0.0")
 app.add_middleware(
@@ -32,3 +33,4 @@ async def root():
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(upload_router, prefix="/api/disease", tags=["Disease"])
 app.include_router(growth_router, prefix="/api/growth", tags=["Growth"])
+app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])

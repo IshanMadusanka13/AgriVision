@@ -18,7 +18,7 @@ class SupabaseService:
 
     # ==================== User Operations ====================
 
-    def create_user(self, email: str, name: Optional[str] = None, password_hash: Optional[str] = None) -> Dict:
+    def create_user(self, email: str, name: Optional[str] = None, password_hash: Optional[str] = None, role: str = "user") -> Dict:
         """
         Create a new user
 
@@ -26,11 +26,12 @@ class SupabaseService:
             email: User email
             name: User name (optional)
             password_hash: Hashed password (optional)
+            role: User role (default: 'user', can be 'admin')
 
         Returns:
             Dict: Created user data
         """
-        user_data = {"email": email}
+        user_data = {"email": email, "role": role}
         if name:
             user_data["name"] = name
         if password_hash:

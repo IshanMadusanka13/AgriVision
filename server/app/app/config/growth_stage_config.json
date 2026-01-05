@@ -1,0 +1,79 @@
+{
+  "stages": [
+    {
+      "stage": "early_vegetative",
+      "min_leaves": 1,
+      "max_leaves": 10,
+      "min_flowers": 0,
+      "max_flowers": 0,
+      "min_fruits": 0,
+      "max_fruits": 0,
+      "nitrogen_min": 80.0,
+      "nitrogen_max": 120.0,
+      "phosphorus_min": 40.0,
+      "phosphorus_max": 60.0,
+      "potassium_min": 100.0,
+      "potassium_max": 150.0
+    },
+    {
+      "stage": "vegetative",
+      "min_leaves": 10,
+      "max_leaves": 999,
+      "min_flowers": 0,
+      "max_flowers": 0,
+      "min_fruits": 0,
+      "max_fruits": 0,
+      "nitrogen_min": 100.0,
+      "nitrogen_max": 150.0,
+      "phosphorus_min": 50.0,
+      "phosphorus_max": 80.0,
+      "potassium_min": 120.0,
+      "potassium_max": 180.0
+    },
+    {
+      "stage": "flowering",
+      "min_leaves": 10,
+      "max_leaves": 999,
+      "min_flowers": 1,
+      "max_flowers": 999,
+      "min_fruits": 0,
+      "max_fruits": 0,
+      "nitrogen_min": 60.0,
+      "nitrogen_max": 100.0,
+      "phosphorus_min": 80.0,
+      "phosphorus_max": 120.0,
+      "potassium_min": 150.0,
+      "potassium_max": 200.0
+    },
+    {
+      "stage": "fruiting",
+      "min_leaves": 10,
+      "max_leaves": 999,
+      "min_flowers": 0,
+      "max_flowers": 999,
+      "min_fruits": 1,
+      "max_fruits": 999,
+      "nitrogen_min": 60.0,
+      "nitrogen_max": 100.0,
+      "phosphorus_min": 60.0,
+      "phosphorus_max": 100.0,
+      "potassium_min": 180.0,
+      "potassium_max": 250.0
+    },
+    {
+      "stage": "ripening",
+      "min_leaves": 10,
+      "max_leaves": 999,
+      "min_flowers": 0,
+      "max_flowers": 999,
+      "min_fruits": 3,
+      "max_fruits": 999,
+      "nitrogen_min": 40.0,
+      "nitrogen_max": 80.0,
+      "phosphorus_min": 40.0,
+      "phosphorus_max": 80.0,
+      "potassium_min": 200.0,
+      "potassium_max": 300.0
+    }
+  ]
+}

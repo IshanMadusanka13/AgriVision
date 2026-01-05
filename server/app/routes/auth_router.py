@@ -101,7 +101,8 @@ async def signup(request: SignupRequest):
             user={
                 "id": user.get("id"),
                 "email": user.get("email"),
-                "name": user.get("name")
+                "name": user.get("name"),
+                "role": user.get("role", "user")
             },
             token=token
         )
@@ -166,7 +167,8 @@ async def login(request: LoginRequest):
             user={
                 "id": user.get("id"),
                 "email": user.get("email"),
-                "name": user.get("name")
+                "name": user.get("name"),
+                "role": user.get("role", "user")
             },
             token=token
         )
@@ -208,7 +210,8 @@ async def get_user(email: str):
             "user": {
                 "id": user.get("id"),
                 "email": user.get("email"),
-                "name": user.get("name")
+                "name": user.get("name"),
+                "role": user.get("role", "user")
             }
         }
 
