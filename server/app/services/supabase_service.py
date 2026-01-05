@@ -18,13 +18,14 @@ class SupabaseService:
 
     # ==================== User Operations ====================
 
-    def create_user(self, email: str, name: Optional[str] = None) -> Dict:
+    def create_user(self, email: str, name: Optional[str] = None, password_hash: Optional[str] = None) -> Dict:
         """
         Create a new user
 
         Args:
             email: User email
             name: User name (optional)
+            password_hash: Hashed password (optional)
 
         Returns:
             Dict: Created user data
@@ -32,6 +33,8 @@ class SupabaseService:
         user_data = {"email": email}
         if name:
             user_data["name"] = name
+        if password_hash:
+            user_data["password_hash"] = password_hash
 
         response = self.client.table("users").insert(user_data).execute()
         return response.data[0] if response.data else None

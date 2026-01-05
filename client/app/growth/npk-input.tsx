@@ -15,6 +15,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFullAnalysis, getCurrentWeather, type WeatherData, type Location as LocationType } from '@/services/api';
 
 export default function NPKInputScreen() {
@@ -157,6 +158,14 @@ export default function NPKInputScreen() {
 
     setLoading(true);
     try {
+      // Get user email from AsyncStorage
+      const userEmail = await AsyncStorage.getItem('userEmail');
+
+      // Get location name from detected weather or default
+      const locationName = detectedWeather?.location || null;
+
+      console.log('Submitting analysis with user email:', userEmail);
+
       const result = await getFullAnalysis(
         imageUri,
         { nitrogen: n, phosphorus: p, potassium: k },
@@ -164,7 +173,9 @@ export default function NPKInputScreen() {
         autoDetected ? null : weather, // Only pass manual weather if not auto-detected
         temperature ? parseFloat(temperature) : null,
         phValue,
-        detectedWeather?.humidity || null
+        detectedWeather?.humidity || null,
+        userEmail, // Pass user email for database save
+        locationName // Pass location name
       );
 
       router.push({

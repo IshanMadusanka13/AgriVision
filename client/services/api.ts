@@ -38,8 +38,11 @@ export interface Recommendation {
 }
 
 export interface FullAnalysisResult {
+  success: boolean;
   detection: DetectionResult;
   recommendation: Recommendation;
+  session_id?: string | null;
+  saved_to_db?: boolean;
 }
 
 export interface NPKData {
@@ -154,11 +157,13 @@ export const getFullAnalysis = async (
   weather?: string | null,
   temperature?: number | null,
   ph?: number | null,
-  humidity?: number | null
+  humidity?: number | null,
+  userEmail?: string | null,
+  locationName?: string | null
 ): Promise<FullAnalysisResult> => {
   try {
     const formData = createImageFormData(imageUri);
-    
+
     Object.entries(npkData).forEach(([key, value]) => {
       formData.append(key, value.toString());
     });
@@ -170,6 +175,8 @@ export const getFullAnalysis = async (
       temperature,
       ph,
       humidity,
+      user_email: userEmail,
+      location_name: locationName,
     });
 
     const response = await api.post<FullAnalysisResult>('/api/growth/full_analysis', formData, {

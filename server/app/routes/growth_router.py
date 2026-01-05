@@ -345,29 +345,20 @@ async def full_analysis(
                         "ripening_count": 0  # Add if available
                     }
 
-                    # Prepare NPK status
-                    npk_status = analyze_npk_levels(npk_input, detection.growth_stage)
-                    npk_status_dict = {
-                        "nitrogen": {
-                            "level": npk_status.nitrogen.status,
-                            "current": npk_status.nitrogen.current,
-                            "optimal": npk_status.nitrogen.optimal
-                        },
-                        "phosphorus": {
-                            "level": npk_status.phosphorus.status,
-                            "current": npk_status.phosphorus.current,
-                            "optimal": npk_status.phosphorus.optimal
-                        },
-                        "potassium": {
-                            "level": npk_status.potassium.status,
-                            "current": npk_status.potassium.current,
-                            "optimal": npk_status.potassium.optimal
-                        }
-                    }
+                    # Get NPK status from recommendation (it's already a dictionary)
+                    npk_status_dict = recommendation.npk_status
+
+                    # npk_status_dict structure:
+                    # {
+                    #     "nitrogen": {"level": "low/optimal/high", "current": 70, "optimal": "80-120"},
+                    #     "phosphorus": {"level": "...", "current": 90, "optimal": "..."},
+                    #     "potassium": {"level": "...", "current": 170, "optimal": "..."}
+                    # }
 
                     # Prepare fertilizer recommendation
+                    # week_plan is already a list of dictionaries, no need to convert
                     fertilizer_rec_dict = {
-                        "week_plan": [day.dict() for day in recommendation.week_plan],
+                        "week_plan": recommendation.week_plan,
                         "warnings": recommendation.warnings,
                         "tips": recommendation.tips
                     }
