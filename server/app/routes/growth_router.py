@@ -48,6 +48,15 @@ except ImportError:
         generate_fertilizer_plan
     )
 
+# Import Supabase service
+try:
+    from services.supabase_service import SupabaseService
+except ImportError:
+    from services.supabase_service import SupabaseService
+
+# Initialize Supabase service
+supabase_service = SupabaseService()
+
 router = APIRouter()
 
 # Load YOLOv8 model (set MODEL_PATH in .env or use default best.pt)
@@ -230,17 +239,39 @@ async def full_analysis(
     weather: Optional[str] = Form(None),
     temperature: Optional[float] = Form(None),
     ph: Optional[float] = Form(None),
-    humidity: Optional[float] = Form(None)
+    humidity: Optional[float] = Form(None),
+    user_email: Optional[str] = Form(None),
+    location_name: Optional[str] = Form(None),
+    save_to_db: bool = Form(True)
 ):
+    """
+    Complete plant analysis with detection, NPK analysis, and fertilizer recommendations.
+    Optionally saves all data to Supabase database.
+
+    Args:
+        file: Plant image
+        nitrogen, phosphorus, potassium: NPK values in mg/kg
+        latitude, longitude: Location coordinates
+        weather: Weather condition override
+        temperature: Temperature in Celsius
+        ph: Soil pH (0-14)
+        humidity: Humidity percentage (0-100)
+        user_email: User email for database storage (optional)
+        location_name: Location name/address (optional)
+        save_to_db: Whether to save to database (default: True)
+    """
     try:
+        # Perform detection
         detection = await detect_plant(file)
 
+        # Prepare NPK input
         npk_input = NPKInput(
             nitrogen=nitrogen,
             phosphorus=phosphorus,
             potassium=potassium
         )
 
+        # Prepare fertilizer request
         fertilizer_request = FertilizerRequest(
             growth_stage=detection.growth_stage,
             npk_levels=npk_input,
@@ -252,12 +283,125 @@ async def full_analysis(
             humidity=humidity
         )
 
+        # Get recommendation
         recommendation = await recommend_fertilizer(fertilizer_request)
 
+        # Save to database if requested
+        session_id = None
+        if save_to_db:
+            try:
+                # Get or create user
+                user_id = None
+                if user_email:
+                    user = supabase_service.get_user_by_email(user_email)
+                    if not user:
+                        user = supabase_service.create_user(user_email)
+                        print(f"Created new user: {user_email}")
+                    user_id = user.get('id') if user else None
+
+                if user_id:
+                    # Get weather data
+                    current_weather = weather
+                    weather_forecast_data = None
+
+                    if latitude and longitude:
+                        try:
+                            weather_data = weather_service.get_current_weather(latitude, longitude)
+                            if not current_weather:
+                                current_weather = weather_data.get("condition")
+
+                            weather_forecast_data = weather_service.get_weather_forecast(latitude, longitude, days=7)
+                        except Exception as e:
+                            print(f"Weather fetch error (continuing without weather): {e}")
+
+                    # Prepare data for Supabase
+                    npk_data = {
+                        "nitrogen": nitrogen,
+                        "phosphorus": phosphorus,
+                        "potassium": potassium
+                    }
+
+                    environmental_data = {
+                        "ph": ph,
+                        "temperature": temperature,
+                        "humidity": humidity,
+                        "location": location_name,
+                        "location_lat": latitude,
+                        "location_lng": longitude,
+                        "current_weather": current_weather
+                    }
+
+                    image_urls = {
+                        "original_image_url": None,  # TODO: Implement image upload
+                        "annotated_image_url": None
+                    }
+
+                    growth_stage_data = {
+                        "growth_stage": detection.growth_stage,
+                        "confidence": detection.confidence,
+                        "flower_count": detection.flowers_count,
+                        "fruit_count": detection.fruits_count,
+                        "leaf_count": detection.leaves_count,
+                        "ripening_count": 0  # Add if available
+                    }
+
+                    # Prepare NPK status
+                    npk_status = analyze_npk_levels(npk_input, detection.growth_stage)
+                    npk_status_dict = {
+                        "nitrogen": {
+                            "level": npk_status.nitrogen.status,
+                            "current": npk_status.nitrogen.current,
+                            "optimal": npk_status.nitrogen.optimal
+                        },
+                        "phosphorus": {
+                            "level": npk_status.phosphorus.status,
+                            "current": npk_status.phosphorus.current,
+                            "optimal": npk_status.phosphorus.optimal
+                        },
+                        "potassium": {
+                            "level": npk_status.potassium.status,
+                            "current": npk_status.potassium.current,
+                            "optimal": npk_status.potassium.optimal
+                        }
+                    }
+
+                    # Prepare fertilizer recommendation
+                    fertilizer_rec_dict = {
+                        "week_plan": [day.dict() for day in recommendation.week_plan],
+                        "warnings": recommendation.warnings,
+                        "tips": recommendation.tips
+                    }
+
+                    # Save complete analysis
+                    session_id = supabase_service.save_complete_analysis(
+                        user_id=user_id,
+                        npk_data=npk_data,
+                        environmental_data=environmental_data,
+                        image_urls=image_urls,
+                        growth_stage_data=growth_stage_data,
+                        weather_forecast=weather_forecast_data,
+                        npk_status=npk_status_dict,
+                        fertilizer_recommendation=fertilizer_rec_dict
+                    )
+
+                    print(f"✓ Analysis saved to database. Session ID: {session_id}")
+                else:
+                    print("⚠ No user_email provided, skipping database save")
+
+            except Exception as db_error:
+                # Log error but don't fail the request
+                print(f"⚠ Database save failed (continuing): {str(db_error)}")
+                import traceback
+                traceback.print_exc()
+
         return {
+            "success": True,
             "detection": detection,
-            "recommendation": recommendation
+            "recommendation": recommendation,
+            "session_id": session_id,
+            "saved_to_db": session_id is not None
         }
+
     except Exception as e:
         import traceback
         print(f"Full analysis error: {str(e)}")

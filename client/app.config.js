@@ -45,7 +45,7 @@ module.exports = {
       reactCompiler: true
     },
     extra: {
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://172.20.10.12:8000"
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://192.168.137.82:8000"
     }
   }
 };
