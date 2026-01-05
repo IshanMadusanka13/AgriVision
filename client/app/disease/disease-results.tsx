@@ -155,7 +155,7 @@ export default function DiseaseResultsScreen() {
 
         <TouchableOpacity 
           style={styles.button} 
-          onPress={() => router.push("/(tabs)")}
+          onPress={() => router.push("/")}
         >
           <Text style={styles.buttonIcon}>🏠</Text>
           <Text style={styles.buttonText}>Back to Home</Text>
@@ -307,7 +307,7 @@ export default function DiseaseResultsScreen() {
 
         <TouchableOpacity 
           style={styles.button} 
-          onPress={() => router.push("/(tabs)")}
+          onPress={() => router.push("/")}
         >
           <Text style={styles.buttonIcon}>🏠</Text>
           <Text style={styles.buttonText}>Back to Home</Text>

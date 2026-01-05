@@ -11,6 +11,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getRecommendationsMetadata,
+  updateRecommendationsMetadata,
+} from '../../services/api';
 
 export default function EditRecommendations() {
   const router = useRouter();
@@ -31,19 +35,7 @@ export default function EditRecommendations() {
       if (!userDataString) return;
 
       const userData = JSON.parse(userDataString);
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.167:8000';
-
-      const response = await fetch(`${API_URL}/api/admin/recommendations/metadata`, {
-        headers: {
-          'X-User-Email': userData.email,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch recommendations');
-      }
-
-      const data = await response.json();
+      const data = await getRecommendationsMetadata(userData.email);
       setWarnings(data.warnings || []);
       setTips(data.tips || []);
     } catch (error) {
@@ -61,24 +53,7 @@ export default function EditRecommendations() {
       if (!userDataString) return;
 
       const userData = JSON.parse(userDataString);
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.167:8000';
-
-      const response = await fetch(`${API_URL}/api/admin/recommendations/metadata`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userData.email,
-        },
-        body: JSON.stringify({
-          warnings,
-          tips,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save recommendations');
-      }
-
+      await updateRecommendationsMetadata(userData.email, warnings, tips);
       Alert.alert('Success', 'Recommendations updated successfully');
     } catch (error) {
       console.error('Error saving recommendations:', error);

@@ -29,7 +29,7 @@ export default function HomeScreen() {
 
       if (!token) {
         // Not logged in, redirect to login
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/login' as any);
       } else {
         // Logged in, show the home screen
         setUserName(name || 'User');
@@ -52,7 +52,7 @@ export default function HomeScreen() {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.clear();
-            router.replace('/(auth)/login');
+            router.replace('/(auth)/login' as any);
           },
         },
       ]
@@ -169,6 +169,7 @@ export default function HomeScreen() {
           <Text style={styles.footerText}>v1.0</Text>
         </View>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

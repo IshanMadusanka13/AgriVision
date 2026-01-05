@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.183:8000';
+import { login } from '../../services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -30,47 +29,31 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password,
-        }),
-      });
+      const data = await login(email.trim().toLowerCase(), password);
+      if (!data.success) throw new Error((data as any).detail || 'Login failed');
 
-      const data = await response.json();
+      // Save user data to AsyncStorage
+      await AsyncStorage.setItem('userToken', data.token);
+      await AsyncStorage.setItem('userEmail', data.user.email);
+      await AsyncStorage.setItem('userName', data.user.name || '');
+      await AsyncStorage.setItem('userId', data.user.id);
+      await AsyncStorage.setItem('userData', JSON.stringify(data.user));
 
-      if (!response.ok) {
-        throw new Error(data.detail || 'Login failed');
-      }
-
-      if (data.success) {
-        // Save user data to AsyncStorage
-        await AsyncStorage.setItem('userToken', data.token);
-        await AsyncStorage.setItem('userEmail', data.user.email);
-        await AsyncStorage.setItem('userName', data.user.name || '');
-        await AsyncStorage.setItem('userId', data.user.id);
-        await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-
-        // Check if user is admin and redirect accordingly
-        if (data.user.role === 'admin') {
-          Alert.alert('Success', 'Welcome Admin!', [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/admin/dashboard'),
-            },
-          ]);
-        } else {
-          Alert.alert('Success', 'Login successful!', [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/(tabs)'),
-            },
-          ]);
-        }
+      // Check if user is admin and redirect accordingly
+      if (data.user.role === 'admin') {
+        Alert.alert('Success', 'Welcome Admin!', [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/admin/dashboard' as any),
+          },
+        ]);
+      } else {
+        Alert.alert('Success', 'Login successful!', [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/' as any),
+          },
+        ]);
       }
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'An error occurred');
@@ -80,7 +63,7 @@ export default function LoginScreen() {
   };
 
   const navigateToSignup = () => {
-    router.push('/(auth)/signup');
+    router.push('/(auth)/signup' as any);
   };
 
   return (

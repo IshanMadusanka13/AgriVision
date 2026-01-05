@@ -194,7 +194,7 @@ export default function HistoryScreen() {
       </Text>
       <TouchableOpacity
         style={styles.startButton}
-        onPress={() => router.push('/(tabs)')}
+        onPress={() => router.push('/')}
       >
         <Text style={styles.startButtonText}>Start Analysis</Text>
       </TouchableOpacity>

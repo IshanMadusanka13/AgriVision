@@ -10,17 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface DashboardStats {
-  total_users: number;
-  total_sessions: number;
-  recent_sessions: Array<{
-    id: string;
-    created_at: string;
-    growth_stage: string;
-    user_id: string;
-  }>;
-}
+import { getAdminDashboardStats, DashboardStats } from '../../services/api';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -36,25 +26,13 @@ export default function AdminDashboard() {
       const userDataString = await AsyncStorage.getItem('userData');
       if (!userDataString) {
         Alert.alert('Error', 'Please login first');
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/login' as any);
         return;
       }
 
       const userData = JSON.parse(userDataString);
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.167:8000';
-
-      const response = await fetch(`${API_URL}/api/admin/dashboard/stats`, {
-        headers: {
-          'X-User-Email': userData.email,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard stats');
-      }
-
-      const data = await response.json();
-      setStats(data.stats);
+      const data = await getAdminDashboardStats(userData.email);
+      setStats(data);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       Alert.alert('Error', 'Failed to load dashboard statistics');
@@ -95,7 +73,7 @@ export default function AdminDashboard() {
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/admin/recommendations')}
+          onPress={() => router.push('/admin/recommendations' as any)}
         >
           <Text style={styles.actionIcon}>📝</Text>
           <Text style={styles.actionTitle}>Edit Recommendations</Text>
@@ -106,7 +84,7 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/admin/settings')}
+          onPress={() => router.push('/admin/settings' as any)}
         >
           <Text style={styles.actionIcon}>⚙️</Text>
           <Text style={styles.actionTitle}>Growth Analysis Settings</Text>
@@ -135,7 +113,7 @@ export default function AdminDashboard() {
         onPress={async () => {
           await AsyncStorage.removeItem('userData');
           await AsyncStorage.removeItem('authToken');
-          router.replace('/(auth)/login');
+          router.replace('/(auth)/login' as any);
         }}
       >
         <Text style={styles.logoutText}>Logout</Text>

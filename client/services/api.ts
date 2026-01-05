@@ -76,6 +76,48 @@ export interface Location {
   longitude: number;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  token: string;
+  user: AuthUser;
+  detail?: string;
+}
+
+// Add admin types
+export interface GrowthStageConfig {
+  stage: string;
+  min_leaves: number;
+  max_leaves: number;
+  min_flowers: number;
+  max_flowers: number;
+  min_fruits: number;
+  max_fruits: number;
+  nitrogen_min: number;
+  nitrogen_max: number;
+  phosphorus_min: number;
+  phosphorus_max: number;
+  potassium_min: number;
+  potassium_max: number;
+}
+
+export interface DashboardStats {
+  total_users: number;
+  total_sessions: number;
+  recent_sessions: Array<{
+    id: string;
+    created_at: string;
+    growth_stage: string;
+    user_id: string;
+  }>;
+}
+
 const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.4:8000';
 
 const api: AxiosInstance = axios.create({
@@ -133,6 +175,40 @@ const handleApiError = (error: any, context: string): never => {
   throw error;
 };
 
+//-------------------------------------------------
+//-------------------Auth--------------------------
+//-------------------------------------------------
+export const signup = async (
+  name: string,
+  email: string,
+  password: string
+): Promise<AuthResponse> => {
+  try {
+    const response = await api.post<AuthResponse>('/api/auth/signup', {
+      name,
+      email,
+      password,
+    });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Signup');
+  }
+};
+
+export const login = async (
+  email: string,
+  password: string
+): Promise<AuthResponse> => {
+  try {
+    const response = await api.post<AuthResponse>('/api/auth/login', {
+      email,
+      password,
+    });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Login');
+  }
+};
 
 //-------------------------------------------------
 //-------------------Disease-----------------------
@@ -292,6 +368,64 @@ export const gradeQuality = async (imageUris: string[]): Promise<any> => {
   }
 };
 
+//-------------------------------------------------
+//-------------------Admin / Management-----------
+//-------------------------------------------------
+export const getAdminDashboardStats = async (userEmail: string): Promise<DashboardStats> => {
+  try {
+    const response = await api.get<{ stats: DashboardStats }>('/api/admin/dashboard/stats', {
+      headers: { 'X-User-Email': userEmail },
+    });
+    return response.data.stats;
+  } catch (error) {
+    return handleApiError(error, 'Admin Dashboard');
+  }
+};
+
+export const getGrowthStageConfigAdmin = async (userEmail: string): Promise<GrowthStageConfig[]> => {
+  try {
+    const response = await api.get<{ config: { stages: GrowthStageConfig[] } }>(
+      '/api/admin/growth-stage/config',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.config?.stages || [];
+  } catch (error) {
+    return handleApiError(error, 'Growth Stage Config');
+  }
+};
+
+export const updateGrowthStageConfigAdmin = async (userEmail: string, configs: GrowthStageConfig[]): Promise<void> => {
+  try {
+    await api.put('/api/admin/growth-stage/config', { configs }, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Growth Stage Config');
+  }
+};
+
+export const getRecommendationsMetadata = async (userEmail: string): Promise<{ warnings: string[]; tips: string[] }> => {
+  try {
+    const response = await api.get<{ warnings: string[]; tips: string[] }>(
+      '/api/admin/recommendations/metadata',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Get Recommendations Metadata');
+  }
+};
+
+export const updateRecommendationsMetadata = async (userEmail: string, warnings: string[], tips: string[]): Promise<void> => {
+  try {
+    await api.put('/api/admin/recommendations/metadata', { warnings, tips }, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Recommendations Metadata');
+  }
+};
+
 export default {
   detectPlant,
   getRecommendation,
@@ -300,5 +434,13 @@ export default {
   getWeatherForecast,
   checkAPIStatus,
   predict_disease,
-  gradeQuality
+  gradeQuality,
+  signup,
+  login,
+  // admin exports
+  getAdminDashboardStats,
+  getGrowthStageConfigAdmin,
+  updateGrowthStageConfigAdmin,
+  getRecommendationsMetadata,
+  updateRecommendationsMetadata,
 };

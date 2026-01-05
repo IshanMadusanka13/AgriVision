@@ -11,22 +11,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface GrowthStageConfig {
-  stage: string;
-  min_leaves: number;
-  max_leaves: number;
-  min_flowers: number;
-  max_flowers: number;
-  min_fruits: number;
-  max_fruits: number;
-  nitrogen_min: number;
-  nitrogen_max: number;
-  phosphorus_min: number;
-  phosphorus_max: number;
-  potassium_min: number;
-  potassium_max: number;
-}
+import {
+  getGrowthStageConfigAdmin,
+  updateGrowthStageConfigAdmin,
+  GrowthStageConfig,
+} from '../../services/api';
 
 export default function GrowthAnalysisSettings() {
   const router = useRouter();
@@ -44,20 +33,8 @@ export default function GrowthAnalysisSettings() {
       if (!userDataString) return;
 
       const userData = JSON.parse(userDataString);
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.167:8000';
-
-      const response = await fetch(`${API_URL}/api/admin/growth-stage/config`, {
-        headers: {
-          'X-User-Email': userData.email,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch config');
-      }
-
-      const data = await response.json();
-      setConfigs(data.config.stages || []);
+      const stages = await getGrowthStageConfigAdmin(userData.email);
+      setConfigs(stages);
     } catch (error) {
       console.error('Error fetching config:', error);
       Alert.alert('Error', 'Failed to load settings');
@@ -73,23 +50,7 @@ export default function GrowthAnalysisSettings() {
       if (!userDataString) return;
 
       const userData = JSON.parse(userDataString);
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.167:8000';
-
-      const response = await fetch(`${API_URL}/api/admin/growth-stage/config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userData.email,
-        },
-        body: JSON.stringify({
-          configs,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save config');
-      }
-
+      await updateGrowthStageConfigAdmin(userData.email, configs);
       Alert.alert('Success', 'Settings updated successfully');
     } catch (error) {
       console.error('Error saving config:', error);

@@ -268,7 +268,7 @@ async def full_analysis(
 
         # Use determine_growth_stage function to perform detection
         # This returns debug_image_path which contains the annotated image
-        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img, model)
+        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img)
 
         # Save annotated image path for later upload
         annotated_image_path = debug_image_path if debug_image_path else None

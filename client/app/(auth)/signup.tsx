@@ -14,8 +14,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.183:8000';
+import { signup } from '../../services/api';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -44,38 +43,21 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const data = await signup(name.trim(), email.trim().toLowerCase(), password);
+      if (!data.success) throw new Error((data as any).detail || 'Signup failed');
+
+      // Save user data to AsyncStorage
+      await AsyncStorage.setItem('userToken', data.token);
+      await AsyncStorage.setItem('userEmail', data.user.email);
+      await AsyncStorage.setItem('userName', data.user.name || '');
+      await AsyncStorage.setItem('userId', data.user.id);
+
+      Alert.alert('Success', 'Account created successfully!', [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/'),
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Signup failed');
-      }
-
-      if (data.success) {
-        // Save user data to AsyncStorage
-        await AsyncStorage.setItem('userToken', data.token);
-        await AsyncStorage.setItem('userEmail', data.user.email);
-        await AsyncStorage.setItem('userName', data.user.name || '');
-        await AsyncStorage.setItem('userId', data.user.id);
-
-        Alert.alert('Success', 'Account created successfully!', [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ]);
-      }
+      ]);
     } catch (error: any) {
       Alert.alert('Signup Failed', error.message || 'An error occurred');
     } finally {
