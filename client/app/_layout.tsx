@@ -15,10 +15,37 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="disease" options={{ headerShown: false }} />
         <Stack.Screen name="growth" options={{ headerShown: false }} />
         <Stack.Screen name="quality" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="growth/history"
+          options={{
+            title: 'Analysis History',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="growth/session-details"
+          options={{
+            title: 'Session Details',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );
