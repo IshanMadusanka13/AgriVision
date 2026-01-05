@@ -57,6 +57,32 @@ export default function RootLayout() {
             },
           }}
         />
+        <Stack.Screen
+          name="growth/history"
+          options={{
+            title: 'Analysis History',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="growth/session-details"
+          options={{
+            title: 'Session Details',
+            headerStyle: {
+              backgroundColor: '#10b981',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

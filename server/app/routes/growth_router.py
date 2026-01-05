@@ -495,3 +495,68 @@ async def full_analysis(
         print(f"Full analysis error: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Full analysis error: {str(e)}")
+
+
+@router.get("/history/{user_email}")
+async def get_user_history(user_email: str):
+    """
+    Get all analysis sessions for a specific user.
+
+    Args:
+        user_email: User's email address
+
+    Returns:
+        List of analysis sessions with basic information
+    """
+    try:
+        # Get user by email
+        user = supabase_service.get_user_by_email(user_email)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_id = user.get('id')
+
+        # Get all sessions for this user (limit 100 to get all recent sessions)
+        sessions = supabase_service.get_user_sessions(user_id, limit=100)
+
+        return {
+            "success": True,
+            "sessions": sessions,
+            "count": len(sessions)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"History fetch error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+
+
+@router.get("/session/{session_id}")
+async def get_session_details(session_id: str):
+    """
+    Get detailed information about a specific analysis session.
+
+    Args:
+        session_id: UUID of the analysis session
+
+    Returns:
+        Complete session data including NPK status and fertilizer recommendations
+    """
+    try:
+        # Get complete analysis from Supabase
+        analysis = supabase_service.get_complete_analysis(session_id)
+
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        return {
+            "success": True,
+            "analysis": analysis
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Session details fetch error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch session details: {str(e)}")

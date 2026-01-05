@@ -81,18 +81,18 @@ export default function HomeScreen() {
       color: '#10b981',
     },
     {
+      title: 'Analysis History',
+      description: 'View past analyses',
+      icon: '📊',
+      route: '/growth/history',
+      color: '#3b82f6',
+    },
+    {
       title: 'Disease Detection',
       description: 'Identify plant diseases',
       icon: '🔬',
       route: '/disease/disease',
       color: '#f59e0b',
-    },
-    {
-      title: 'Coming Soon',
-      description: 'Feature in development',
-      icon: '🚧',
-      route: '/',
-      color: '#6b7280',
     },
     {
       title: 'Coming Soon',
