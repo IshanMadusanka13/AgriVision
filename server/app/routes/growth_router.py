@@ -11,9 +11,6 @@ from PIL import Image
 from dotenv import load_dotenv
 import torch
 
-# Load environment variables from .env file in parent directory
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
-
 # Patch torch.load to use weights_only=False for custom YOLO models
 # This is safe because we trust our own trained model
 _original_torch_load = torch.load
@@ -49,19 +46,6 @@ except ImportError:
     )
 
 router = APIRouter()
-
-# Load YOLOv8 model (set MODEL_PATH in .env or use default best.pt)
-MODEL_PATH = os.getenv("MODEL_PATH", "best.pt")
-try:
-    # Set torch.load to use weights_only=False for loading custom YOLO models
-    # This is safe because we trust our own trained model
-    torch.serialization.clear_safe_globals()
-    model = YOLO(MODEL_PATH)
-    print(f"✓ Model loaded successfully from {MODEL_PATH}")
-except Exception as e:
-    model = None
-    print(f"Failed to load YOLOv8 model. Error: {str(e)}")
-    print(f"Please check model path: {MODEL_PATH}")
 
 
 class FertilizerRequest(BaseModel):
@@ -128,8 +112,6 @@ async def get_forecast(latitude: float, longitude: float, days: int = 7):
 
 @router.post("/detect", response_model=DetectionResult)
 async def detect_plant(file: UploadFile = File(...)):
-    if not model:
-        raise HTTPException(status_code=500, detail="YOLOv8 model is not loaded in the system.")
 
     try:
         # Read uploaded image
@@ -141,7 +123,7 @@ async def detect_plant(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Failed to read image file.")
 
         # Use determine_growth_stage function to perform detection and determine growth stage
-        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img, model)
+        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img)
 
         # Convert stage key to readable format
         stage_map = {

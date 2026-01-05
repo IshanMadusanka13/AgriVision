@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from datetime import datetime
 import os
+from configs.model_loader import growth_model
 
 
 # Models
@@ -32,13 +33,12 @@ class DetectionCounts(BaseModel):
     ripening: int
 
 
-def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str]:
+def determine_growth_stage(img: np.ndarray) -> Tuple[str, float, DetectionCounts, str]:
     """
     Performs YOLO detection on image and determines the plant growth stage
 
     Args:
         img: OpenCV image (numpy array)
-        model: YOLO model instance
 
     Returns:
         tuple: (growth_stage, confidence, counts, debug_image_path)
@@ -60,7 +60,7 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     cv2.imwrite(input_path, img)
 
     # Run YOLO model inference
-    results = model.predict(img, conf=0.5)
+    results = growth_model.predict(img, conf=0.5)
 
     # Initialize detection counters
     counts = {
@@ -74,7 +74,7 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     for result in results:
         for box in result.boxes:
             cls_id = int(box.cls[0])
-            label = model.names[cls_id].lower()
+            label = growth_model.names[cls_id].lower()
             if label in counts:
                 counts[label] += 1
 
