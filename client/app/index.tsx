@@ -1,6 +1,3 @@
-// app/(tabs)/index.tsx
-// Home screen with navigation options
-
 import React from 'react';
 import {
   View,
@@ -88,8 +85,8 @@ export default function HomeScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Powered by YOLOv8 AI</Text>
-          <Text style={styles.footerText}>v1.0.0</Text>
+          <Text style={styles.footerText}>AgriVision</Text>
+          <Text style={styles.footerText}>v1.0</Text>
         </View>
       </View>
     </SafeAreaView>
