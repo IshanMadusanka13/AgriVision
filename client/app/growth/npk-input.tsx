@@ -69,9 +69,9 @@ export default function NPKInputScreen() {
 
       if (status !== 'granted') {
         Alert.alert(
-          'Location Permission අවශ්‍යයි',
-          'Weather auto-detect කරන්න location permission එක allow කරන්න ඕනේ.',
-          [{ text: 'හරි' }]
+          'Location Permission Required',
+          'Please allow location permission to enable weather auto-detection.',
+          [{ text: 'OK' }]
         );
         setWeatherLoading(false);
         return;
@@ -115,17 +115,17 @@ export default function NPKInputScreen() {
         setAutoDetected(true);
       } else {
         Alert.alert(
-          'Weather Detection අසමත් විය',
-          'Weather automatic detect කරන්න බැහැ. කරුණාකරලා manually select කරන්න.',
-          [{ text: 'හරි' }]
+          'Weather Detection Failed',
+          'Unable to auto-detect weather. Please enter values manually.',
+          [{ text: 'OK' }]
         );
       }
     } catch (error) {
       console.error('Weather detection error:', error);
       Alert.alert(
         'Weather Detection Error',
-        'Weather data ගන්න බැහැ. Internet connection එක check කරන්න.',
-        [{ text: 'හරි' }]
+        'Unable to fetch weather data. Please check your internet connection.',
+        [{ text: 'OK' }]
       );
     } finally {
       setWeatherLoading(false);
@@ -135,7 +135,7 @@ export default function NPKInputScreen() {
   const handleSubmit = async () => {
     // Validate inputs
     if (!nitrogen || !phosphorus || !potassium || !ph) {
-      Alert.alert('Input Required', 'කරුණාකරලා සියලු NPK සහ pH values enter කරන්න');
+      Alert.alert('Input Required', 'Please enter all NPK and pH values');
       return;
     }
 
@@ -145,13 +145,13 @@ export default function NPKInputScreen() {
     const phValue = parseFloat(ph);
 
     if (isNaN(n) || isNaN(p) || isNaN(k) || isNaN(phValue)) {
-      Alert.alert('Invalid Input', 'කරුණාකරලා valid numbers enter කරන්න');
+      Alert.alert('Invalid Input', 'Please enter valid numbers');
       return;
     }
 
     // Validate pH range
     if (phValue < 0 || phValue > 14) {
-      Alert.alert('Invalid pH', 'pH value 0-14 අතර විය යුතුයි');
+      Alert.alert('Invalid pH', 'pH value must be between 0-14');
       return;
     }
 
@@ -176,7 +176,7 @@ export default function NPKInputScreen() {
     } catch (error) {
       Alert.alert(
         'Analysis Failed',
-        'Recommendations ගන්න බැහැ. Internet connection එක check කරන්න.',
+        'Unable to fetch recommendations. Please check your internet connection.',
         [{ text: 'OK' }]
       );
       console.error(error);
@@ -214,7 +214,7 @@ export default function NPKInputScreen() {
       <View style={styles.inputSection}>
         <Text style={styles.sectionTitle}>🧪 Soil NPK Levels (mg/kg)</Text>
         <Text style={styles.sectionDescription}>
-          NPK meter එකෙන් පස test කරලා values enter කරන්න
+          Test your soil with an NPK meter and enter the values
         </Text>
 
         {/* Nitrogen Input */}
@@ -230,7 +230,7 @@ export default function NPKInputScreen() {
             />
             <Text style={styles.unit}>mg/kg</Text>
           </View>
-          <Text style={styles.hint}>පස්වල නයිට්‍රජන් මට්ටම</Text>
+          <Text style={styles.hint}>Soil nitrogen level</Text>
         </View>
 
         {/* Phosphorus Input */}
@@ -246,7 +246,7 @@ export default function NPKInputScreen() {
             />
             <Text style={styles.unit}>mg/kg</Text>
           </View>
-          <Text style={styles.hint}>පස්වල පොස්පරස් මට්ටම</Text>
+          <Text style={styles.hint}>Soil phosphorus level</Text>
         </View>
 
         {/* Potassium Input */}
@@ -262,7 +262,7 @@ export default function NPKInputScreen() {
             />
             <Text style={styles.unit}>mg/kg</Text>
           </View>
-          <Text style={styles.hint}>පස්වල පොටෑසියම් මට්ටම</Text>
+          <Text style={styles.hint}>Soil potassium level</Text>
         </View>
 
         {/* pH Input */}
@@ -278,7 +278,7 @@ export default function NPKInputScreen() {
             />
             <Text style={styles.unit}>pH</Text>
           </View>
-          <Text style={styles.hint}>පස්වල pH මට්ටම (5.5-7.0 ideal)</Text>
+          <Text style={styles.hint}>Soil pH level (5.5-7.0 ideal)</Text>
         </View>
       </View>
 
@@ -375,7 +375,7 @@ export default function NPKInputScreen() {
             <Text style={styles.unit}>°C</Text>
           </View>
           <Text style={styles.hint}>
-            {autoDetected ? '✅ Auto-detected (can change manually)' : 'දැනට උෂ්ණත්වය'}
+            {autoDetected ? '✅ Auto-detected (can change manually)' : 'Current temperature'}
           </Text>
         </View>
       </View>
@@ -398,10 +398,10 @@ export default function NPKInputScreen() {
       {/* Info Box */}
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>💡 Tips:</Text>
-        <Text style={styles.infoText}>• NPK meter එකක් නැත්නම් estimate එකක් දාන්න පුළුවන්</Text>
-        <Text style={styles.infoText}>• 📍 Weather auto-detect භාවිතා කරන්න - ඔයාගේ location එකෙන් automatic detect වෙනවා</Text>
-        <Text style={styles.infoText}>• Location permission allow කරන්න weather detect වෙන්න</Text>
-        <Text style={styles.infoText}>• Auto-detected values manually වෙනස් කරන්න පුළුවන්</Text>
+        <Text style={styles.infoText}>• If you don't have an NPK meter, you can enter estimated values</Text>
+        <Text style={styles.infoText}>• 📍 Use weather auto-detect - automatically detects from your location</Text>
+        <Text style={styles.infoText}>• Allow location permission to enable weather detection</Text>
+        <Text style={styles.infoText}>• Auto-detected values can be changed manually if needed</Text>
       </View>
     </ScrollView>
   );

@@ -1,10 +1,14 @@
 """
 Fertilizer Recommendation Service
-NPK analysis සහ growth stage අනුව fertilizer recommendations generate කරන service එක
+Generates fertilizer recommendations based on NPK analysis and plant growth stage
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel
+import cv2
+import numpy as np
+from datetime import datetime
+import os
 
 
 # Models
@@ -21,57 +25,124 @@ class FertilizerRecommendation(BaseModel):
     tips: List[str]
 
 
-def determine_growth_stage(leaves: int, flowers: int, fruits: int) -> tuple:
+class DetectionCounts(BaseModel):
+    flower: int
+    fruit: int
+    leaf: int
+    ripening: int
+
+
+def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str]:
     """
-    Detection counts වලින් growth stage determine කරන function එක
+    Performs YOLO detection on image and determines the plant growth stage
+
+    Args:
+        img: OpenCV image (numpy array)
+        model: YOLO model instance
 
     Returns:
-        tuple: (growth_stage, confidence)
+        tuple: (growth_stage, confidence, counts, debug_image_path)
+            - growth_stage: Growth stage identifier (early_vegetative, vegetative, flowering, fruiting, ripening, unknown)
+            - confidence: Confidence score (0-100)
+            - counts: DetectionCounts object with all detection counts
+            - debug_image_path: Path to annotated image (or empty string if failed)
     """
-    total_detections = leaves + flowers + fruits
+    if img is None:
+        return "unknown", 0.0, DetectionCounts(flower=0, fruit=0, leaf=0, ripening=0), ""
+
+    # Save input image for debugging
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    debug_dir = "app/debug_images"
+    os.makedirs(debug_dir, exist_ok=True)
+
+    # Save input image
+    input_path = os.path.join(debug_dir, f"input_{timestamp}.jpg")
+    cv2.imwrite(input_path, img)
+
+    # Run YOLO model inference
+    results = model.predict(img, conf=0.5)
+
+    # Initialize detection counters
+    counts = {
+        "flower": 0,    # Class ID: 0
+        "fruit": 0,     # Class ID: 1
+        "leaf": 0,      # Class ID: 2
+        "ripening": 0   # Class ID: 3
+    }
+
+    # Count detected objects by class
+    for result in results:
+        for box in result.boxes:
+            cls_id = int(box.cls[0])
+            label = model.names[cls_id].lower()
+            if label in counts:
+                counts[label] += 1
+
+    # Save annotated image with bounding boxes
+    annotated_img = results[0].plot()
+    output_path = os.path.join(debug_dir, f"output_{timestamp}.jpg")
+    cv2.imwrite(output_path, annotated_img)
+
+    # Calculate average confidence score
+    avg_conf = float(results[0].boxes.conf.mean()) if len(results[0].boxes) > 0 else 0.0
+
+    # Validate Scotch Bonnet plant
+    # Only consider as Scotch Bonnet if leaves are detected
+    is_scotch_bonnet = counts["leaf"] > 0
+
+    if not is_scotch_bonnet:
+        return "unknown", 0.0, DetectionCounts(**counts), output_path
+
+    # Calculate total detections
+    total_detections = counts["leaf"] + counts["flower"] + counts["fruit"]
 
     if total_detections == 0:
-        return "unknown", 0.0
+        return "unknown", 0.0, DetectionCounts(**counts), output_path
 
-    # Confidence calculation
-    confidence = min(total_detections / 20, 1.0) * 100
+    # Calculate confidence percentage
+    confidence = min(avg_conf * 100, 100.0)
 
-    # Growth stage logic
-    if fruits > 0:
-        return "fruiting", confidence
-    elif flowers > 0:
-        return "flowering", confidence
-    elif leaves > 5:
-        return "vegetative", confidence
+    # Determine growth stage (by priority order)
+    if counts["ripening"] > 0:
+        growth_stage = "ripening"
+    elif counts["fruit"] > 0:
+        growth_stage = "fruiting"
+    elif counts["flower"] > 0:
+        growth_stage = "flowering"
+    elif counts["leaf"] > 5:
+        growth_stage = "vegetative"
     else:
-        return "early_vegetative", confidence
+        growth_stage = "early_vegetative"
+
+    return growth_stage, confidence, DetectionCounts(**counts), output_path
 
 
 def analyze_npk_levels(npk: NPKInput, growth_stage: str) -> Dict:
     """
-    NPK levels analyze කරලා status එක return කරන function එක
+    Analyzes NPK levels and returns status for each nutrient
 
     Args:
-        npk: NPK values (nitrogen, phosphorus, potassium)
-        growth_stage: Current growth stage
+        npk: NPK values (nitrogen, phosphorus, potassium in mg/kg)
+        growth_stage: Current growth stage of the plant
 
     Returns:
-        Dict with NPK status for each nutrient
+        Dict with NPK status for each nutrient (level, current value, optimal range)
     """
     status = {}
 
-    # Growth stage අනුව optimal NPK ranges
+    # Optimal NPK ranges for each growth stage (in mg/kg)
     optimal_ranges = {
         "early_vegetative": {"N": (80, 120), "P": (60, 100), "K": (100, 150)},
         "vegetative": {"N": (100, 150), "P": (80, 120), "K": (120, 180)},
         "flowering": {"N": (60, 100), "P": (120, 180), "K": (180, 250)},
         "fruiting": {"N": (50, 80), "P": (100, 150), "K": (200, 300)},
+        "ripening": {"N": (30, 60), "P": (80, 120), "K": (220, 320)},
         "unknown": {"N": (80, 120), "P": (80, 120), "K": (120, 180)}  # Default ranges
     }
 
     ranges = optimal_ranges.get(growth_stage, optimal_ranges["vegetative"])
 
-    # Nitrogen status
+    # Analyze Nitrogen status
     n_min, n_max = ranges["N"]
     if npk.nitrogen < n_min:
         status["nitrogen"] = {"level": "low", "current": npk.nitrogen, "optimal": f"{n_min}-{n_max}"}
@@ -80,7 +151,7 @@ def analyze_npk_levels(npk: NPKInput, growth_stage: str) -> Dict:
     else:
         status["nitrogen"] = {"level": "optimal", "current": npk.nitrogen, "optimal": f"{n_min}-{n_max}"}
 
-    # Phosphorus status
+    # Analyze Phosphorus status
     p_min, p_max = ranges["P"]
     if npk.phosphorus < p_min:
         status["phosphorus"] = {"level": "low", "current": npk.phosphorus, "optimal": f"{p_min}-{p_max}"}
@@ -89,7 +160,7 @@ def analyze_npk_levels(npk: NPKInput, growth_stage: str) -> Dict:
     else:
         status["phosphorus"] = {"level": "optimal", "current": npk.phosphorus, "optimal": f"{p_min}-{p_max}"}
 
-    # Potassium status
+    # Analyze Potassium status
     k_min, k_max = ranges["K"]
     if npk.potassium < k_min:
         status["potassium"] = {"level": "low", "current": npk.potassium, "optimal": f"{k_min}-{k_max}"}
@@ -111,8 +182,8 @@ def generate_fertilizer_plan(
     weather_forecast: Optional[List[Dict]] = None
 ) -> FertilizerRecommendation:
     """
-    Growth stage, NPK levels, weather, pH, humidity අනුව detailed fertilizer plan එක generate කරනවා
-    Weather forecast එක තියෙනවනම් සෑම දවසකටම වෙනම weather adjustments කරනවා
+    Generates a detailed fertilizer plan based on growth stage, NPK levels, weather, pH, and humidity.
+    If weather forecast is available, applies specific weather adjustments for each day.
 
     Args:
         growth_stage: Plant growth stage
@@ -134,226 +205,267 @@ def generate_fertilizer_plan(
     # pH adjustments and warnings
     if ph is not None:
         if ph < 5.5:
-            warnings.append(f"⚠️ පස්වල pH ({ph:.1f}) ඉතා අඩුයි! Lime (CaCO3) යොදලා pH එක 6.0-6.5 දක්වා වැඩි කරන්න.")
-            tips.append("Dolomite lime එක හොඳයි - Calcium සහ Magnesium දෙකම තියෙනවා.")
-            tips.append("pH අඩුවෙලා තියෙද්දී nutrient absorption අඩු වෙනවා.")
+            warnings.append(f"⚠️ Soil pH ({ph:.1f}) is too low! Apply Lime (CaCO3) to increase pH to 6.0-6.5.")
+            tips.append("Dolomite lime is recommended - it contains both Calcium and Magnesium.")
+            tips.append("Low pH reduces nutrient absorption by plants.")
         elif ph < 6.0:
-            warnings.append(f"pH ({ph:.1f}) තරමක් අඩුයි. Lime යොදන්න අවශ්‍ය විය හැකියි.")
-            tips.append("Scotch bonnet plants සඳහා ideal pH: 6.0-6.8")
+            warnings.append(f"pH ({ph:.1f}) is slightly low. Lime application may be necessary.")
+            tips.append("Ideal pH for Scotch bonnet plants: 6.0-6.8")
         elif ph > 7.0:
-            warnings.append(f"⚠️ පස්වල pH ({ph:.1f}) වැඩියි! Sulfur හෝ organic matter යොදලා pH එක අඩු කරන්න.")
-            tips.append("pH වැඩියෙන් තියෙද්දී Iron, Manganese deficiency එන්න පුළුවන්.")
+            warnings.append(f"⚠️ Soil pH ({ph:.1f}) is too high! Apply Sulfur or organic matter to reduce pH.")
+            tips.append("High pH can cause Iron and Manganese deficiencies.")
         else:
-            tips.append(f"✅ පස්වල pH ({ph:.1f}) optimal range එකේ තියෙනවා!")
+            tips.append(f"✅ Soil pH ({ph:.1f}) is in the optimal range!")
 
     # Humidity adjustments
     if humidity is not None:
         if humidity > 80:
-            warnings.append(f"Humidity ({humidity:.0f}%) වැඩියි. Fungal disease එන්න පුළුවන්. Ventilation එක වැඩි කරන්න.")
-            tips.append("වැඩි humidity එකේ පොහොර යෙදීම අඩු කරන්න - disease risk වැඩියි.")
+            warnings.append(f"Humidity ({humidity:.0f}%) is high. Risk of fungal diseases. Increase ventilation.")
+            tips.append("Reduce fertilizer application in high humidity - disease risk is elevated.")
         elif humidity < 40:
-            warnings.append(f"Humidity ({humidity:.0f}%) අඩුයි. වතුර දීම වැඩි කරන්න - plants stress වෙන්න පුළුවන්.")
-            tips.append("අඩු humidity එකේ පොහොර concentration එක අඩු කරලා frequency එක වැඩි කරන්න.")
+            warnings.append(f"Humidity ({humidity:.0f}%) is low. Increase watering - plants may experience stress.")
+            tips.append("In low humidity, reduce fertilizer concentration and increase application frequency.")
 
     # Weather adjustments
     weather_factor = 1.0
     if weather == "rainy":
-        weather_factor = 0.7  # වැස්සෙන් fertilizer wash වෙන නිසා reduce කරනවා
-        warnings.append("වැස්ස නිසා පොහොර යෙදීම අඩු කරන්න. පස තෙත් වෙලා ඉන්නකොට පොහොර යෙදුවොත් root damage වෙන්න පුළුවන්.")
-        tips.append("වැස්සට පස්සේ දවස් 2-3ක් බලලා පොහොර යොදන්න.")
+        weather_factor = 0.7  # Reduce dosage as rain can wash away fertilizer
+        warnings.append("Reduce fertilizer application due to rain. Applying fertilizer to wet soil can cause root damage.")
+        tips.append("Wait 2-3 days after rain before applying fertilizer.")
         # Adjust for high humidity in rainy weather
         if humidity is None or humidity > 70:
-            tips.append("වැස්ස සමයේ fungicide spray එකක් කරන්න recommended.")
+            tips.append("Fungicide spray is recommended during rainy periods.")
     elif weather == "sunny":
         if temperature and temperature > 32:
-            warnings.append("උෂ්ණත්වය වැඩි නිසා හවස පැය 4-5 විතර පොහොර යොදන්න. දවල් කාලෙ යොදුවොත් පොහොර burn වෙන්න පුළුවන්.")
+            warnings.append("Apply fertilizer in the late afternoon (4-5 PM) due to high temperature. Midday application can cause fertilizer burn.")
             # High temperature - increase watering frequency
-            tips.append(f"උෂ්ණත්වය {temperature:.0f}°C නිසා වතුර දීම වැඩි කරන්න - දවසකට 2 පාරක්.")
+            tips.append(f"Increase watering to twice daily due to high temperature ({temperature:.0f}°C).")
 
     # Growth stage specific recommendations
     if growth_stage == "early_vegetative":
         base_plan = [
             {
-                "day": "සඳුදා",
+                "day": "Monday",
                 "fertilizer_type": "Urea (46-0-0)",
                 "amount": "5-8 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "පොහොර යෙදීමෙන් පස්සේ හොඳින් වතුර දෙන්න"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly after fertilizer application"
             },
             {
-                "day": "බ්‍රහස්පතින්දා",
+                "day": "Thursday",
                 "fertilizer_type": "NPK 15-15-15 (Balanced)",
                 "amount": "8-10 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "සාමාන්‍ය වතුර දීම"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Normal watering"
             }
         ]
         tips.extend([
-            "පළල් වර්ධනයට Nitrogen වැඩියි.",
-            "සතියකට දෙපාරක් organic compost දාන්න පුළුවන්.",
-            "රුක සෙන්ටිමීටර 15-20 උස වෙනකල් මේ schedule එක ඉදිරියට යන්න."
+            "Higher Nitrogen is essential for leaf development.",
+            "Apply organic compost twice weekly.",
+            "Continue this schedule until plants reach 15-20 cm in height."
         ])
 
     elif growth_stage == "vegetative":
         base_plan = [
             {
-                "day": "සඳුදා",
+                "day": "Monday",
                 "fertilizer_type": "Urea (46-0-0)",
                 "amount": "10-12 grams per plant",
-                "method": "මුල අවට විසිරවීම, පස සමග මිශ්‍ර කරන්න",
-                "watering": "පොහොර යෙදීමෙන් පස්සේ හොඳින් වතුර දෙන්න"
+                "method": "Broadcast around the base and mix with soil",
+                "watering": "Water thoroughly after fertilizer application"
             },
             {
-                "day": "බ්‍රහස්පතින්දා",
+                "day": "Thursday",
                 "fertilizer_type": "NPK 19-19-19",
                 "amount": "12-15 grams per plant",
-                "method": "foliar spray එකක් ලෙස හෝ soil application",
-                "watering": "සාමාන්‍ය වතුර දීම"
+                "method": "Apply as foliar spray or soil application",
+                "watering": "Normal watering"
             }
         ]
 
         # NPK adjustments
         if npk_status["nitrogen"]["level"] == "low":
             base_plan[0]["amount"] = "15-18 grams per plant"
-            warnings.append("Nitrogen මට්ටම අඩුයි! Urea amount එක වැඩි කරලා තියෙනවා.")
+            warnings.append("Nitrogen level is low! Urea amount has been increased.")
 
         tips.extend([
-            "ශක්තිමත් වර්ධනයට balanced fertilizer use කරන්න.",
-            "පළල් පැහැය තද කොළ පාටින් නැත්නම් Nitrogen වැඩි කරන්න.",
-            "සතියකට පාර 1-2 organic mulch දාන්න පුළුවන්."
+            "Use balanced fertilizer for vigorous growth.",
+            "If leaf color is not dark green, increase Nitrogen.",
+            "Apply organic mulch 1-2 times per week."
         ])
 
     elif growth_stage == "flowering":
         base_plan = [
             {
-                "day": "සඳුදා",
+                "day": "Monday",
                 "fertilizer_type": "NPK 10-30-20 (Bloom booster)",
                 "amount": "12-15 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "සැලකිලිමත්ව වතුර දෙන්න - මල් අතට වතුර යන්න එපා"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water carefully - avoid wetting flowers"
             },
             {
-                "day": "බ්‍රහස්පතින්දා",
+                "day": "Thursday",
                 "fertilizer_type": "Potassium Sulphate (0-0-50)",
                 "amount": "8-10 grams per plant",
-                "method": "පස සමග මිශ්‍ර කරන්න",
-                "watering": "සාමාන්‍ය වතුර දීම"
+                "method": "Mix with soil",
+                "watering": "Normal watering"
             },
             {
-                "day": "සෙනසුරාදා",
+                "day": "Saturday",
                 "fertilizer_type": "Calcium + Boron foliar spray",
                 "amount": "5ml per liter water",
-                "method": "foliar spray - හවස වරුවේ spray කරන්න",
-                "watering": "spray කරලා වතුර දෙන්න එපා"
+                "method": "Foliar spray - apply in the late afternoon",
+                "watering": "Do not water after spraying"
             }
         ]
 
         # NPK adjustments
         if npk_status["phosphorus"]["level"] == "low":
             base_plan.insert(1, {
-                "day": "අඟහරුවාදා",
+                "day": "Tuesday",
                 "fertilizer_type": "Triple Super Phosphate (0-46-0)",
                 "amount": "10-12 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "හොඳින් වතුර දෙන්න"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly"
             })
-            warnings.append("Phosphorus මට්ටම අඩුයි! මල් පිපීම සඳහා phosphate fertilizer එකක් add කරලා තියෙනවා.")
+            warnings.append("Phosphorus level is low! Phosphate fertilizer has been added for flowering support.")
 
         if npk_status["potassium"]["level"] == "low":
             base_plan[1]["amount"] = "12-15 grams per plant"
-            warnings.append("Potassium මට්ටම අඩුයි! මල් quality එක වැඩි කරන්න potassium වැඩි කරලා තියෙනවා.")
+            warnings.append("Potassium level is low! Potassium has been increased to improve flower quality.")
 
         tips.extend([
-            "මල් පිපීම සඳහා Phosphorus (P) හා Potassium (K) වැදගත්.",
-            "Nitrogen වැඩියෙන් දුන්නොත් මල් වැටෙන්න පුළුවන්.",
-            "Calcium spray එක blossom end rot වළක්වන්න උදව් කරනවා.",
-            "මල් වැටීම වැඩියෙන් තියෙනවනම් Boron spray එකක් try කරන්න."
+            "Phosphorus (P) and Potassium (K) are essential for flowering.",
+            "Excessive Nitrogen can cause flower drop.",
+            "Calcium spray helps prevent blossom end rot.",
+            "If flower drop is excessive, try a Boron spray."
         ])
 
     elif growth_stage == "fruiting":
         base_plan = [
             {
-                "day": "සඳුදා",
+                "day": "Monday",
                 "fertilizer_type": "NPK 5-10-26 (Fruit developer)",
                 "amount": "15-18 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "හොඳින් වතුර දෙන්න"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly"
             },
             {
-                "day": "බදාදා",
+                "day": "Wednesday",
                 "fertilizer_type": "Potassium Sulphate (0-0-50)",
                 "amount": "12-15 grams per plant",
-                "method": "පස සමග මිශ්‍ර කරන්න",
-                "watering": "සාමාන්‍ය වතුර දීම"
+                "method": "Mix with soil",
+                "watering": "Normal watering"
             },
             {
-                "day": "සිකුරාදා",
+                "day": "Friday",
                 "fertilizer_type": "Calcium Nitrate + Magnesium foliar spray",
                 "amount": "7ml per liter water",
-                "method": "foliar spray - හවස වරුවේ",
-                "watering": "spray කරලා වතුර දෙන්න එපා"
+                "method": "Foliar spray - apply in the late afternoon",
+                "watering": "Do not water after spraying"
             }
         ]
 
         # NPK adjustments
         if npk_status["potassium"]["level"] == "low":
             base_plan.insert(2, {
-                "day": "බ්‍රහස්පතින්දා",
+                "day": "Thursday",
                 "fertilizer_type": "Muriate of Potash (0-0-60)",
                 "amount": "15-18 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "හොඳින් වතුර දෙන්න"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly"
             })
-            warnings.append("Potassium මට්ටම ඉතා අඩුයි! ගෙඩි quality එක වැඩි කරන්න extra potassium add කරලා තියෙනවා.")
+            warnings.append("Potassium level is very low! Extra potassium has been added to improve fruit quality.")
 
         if npk_status["nitrogen"]["level"] == "high":
-            warnings.append("Nitrogen මට්ටම වැඩියි! ගෙඩි අවධියේ Nitrogen වැඩියෙන් දුන්නොත් fruit quality එක අඩු වෙන්න පුළුවන්.")
+            warnings.append("Nitrogen level is high! Excessive Nitrogen during fruiting can reduce fruit quality.")
 
         tips.extend([
-            "ගෙඩි වර්ධනයට Potassium (K) ඉතා වැදගත්.",
-            "Calcium spray එක ගෙඩි තද බව වැඩි කරන්න උදව් කරනවා.",
-            "ගෙඩි රතු වෙන අවධියේ Nitrogen අඩු කරන්න.",
-            "Magnesium හිඟයක් තියෙනවනම් පළල් කහ වෙනවා - Epsom salt use කරන්න පුළුවන්.",
-            "සතියකට පාර 2-3 organic compost tea spray එකක් කරන්න පුළුවන්."
+            "Potassium (K) is essential for fruit development.",
+            "Calcium spray helps increase fruit firmness.",
+            "Reduce Nitrogen during fruit ripening stage.",
+            "If leaves turn yellow, Magnesium deficiency may be present - use Epsom salt.",
+            "Apply organic compost tea spray 2-3 times per week."
+        ])
+
+    elif growth_stage == "ripening":
+        base_plan = [
+            {
+                "day": "Monday",
+                "fertilizer_type": "Potassium Sulphate (0-0-50)",
+                "amount": "15-20 grams per plant",
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly"
+            },
+            {
+                "day": "Thursday",
+                "fertilizer_type": "Calcium + Boron foliar spray",
+                "amount": "5-7ml per liter water",
+                "method": "Foliar spray - apply in the late afternoon",
+                "watering": "Do not water after spraying"
+            }
+        ]
+
+        # NPK adjustments
+        if npk_status["nitrogen"]["level"] == "high":
+            warnings.append("⚠️ Nitrogen level is high! Reduce Nitrogen during ripening - it slows down fruit coloring.")
+
+        if npk_status["potassium"]["level"] == "low":
+            base_plan.insert(1, {
+                "day": "Wednesday",
+                "fertilizer_type": "Muriate of Potash (0-0-60)",
+                "amount": "18-22 grams per plant",
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly"
+            })
+            warnings.append("Potassium level is very low! Extra potassium has been added for ripening support.")
+
+        tips.extend([
+            "During ripening, use less Nitrogen and more Potassium.",
+            "Potassium (K) is essential for enhancing fruit color.",
+            "Calcium spray increases fruit storage life.",
+            "Slightly reduce watering during this stage - it enhances fruit flavor.",
+            "Stop all fertilizer applications 1-2 weeks before harvest.",
+            "If fruits are small, Boron deficiency may be present - apply Borax spray."
         ])
 
     else:
         # Unknown or undetected growth stage - provide general recommendations
         base_plan = [
             {
-                "day": "සඳුදා",
+                "day": "Monday",
                 "fertilizer_type": "NPK 15-15-15 (Balanced)",
                 "amount": "10-12 grams per plant",
-                "method": "මුල අවට විසිරවීම",
-                "watering": "පොහොර යෙදීමෙන් පස්සේ හොඳින් වතුර දෙන්න"
+                "method": "Broadcast around the base of the plant",
+                "watering": "Water thoroughly after fertilizer application"
             },
             {
-                "day": "බ්‍රහස්පතින්දා",
+                "day": "Thursday",
                 "fertilizer_type": "Organic Compost",
                 "amount": "100-150 grams per plant",
-                "method": "මුල අවට පොහොර දමා පස සමග මිශ්‍ර කරන්න",
-                "watering": "සාමාන්‍ය වතුර දීම"
+                "method": "Apply around the base and mix with soil",
+                "watering": "Normal watering"
             }
         ]
 
-        warnings.append("⚠️ Plant detection වුණේ නැහැ! General fertilizer plan එකක් දෙනවා.")
-        warnings.append("වඩාත් හොඳ recommendations සඳහා clear plant photo එකක් upload කරන්න.")
+        warnings.append("⚠️ Plant not detected! Providing a general fertilizer plan.")
+        warnings.append("Upload a clear plant photo for better recommendations.")
 
         tips.extend([
-            "Growth stage detect වෙන්න පැහැදිලි leaves, flowers, හෝ fruits තියෙන photo එකක් ගන්න.",
-            "Balanced NPK fertilizer එක සාමාන්‍ය වර්ධනයට හොඳයි.",
-            "Organic compost නිතිපතා යෙදීම පස්වල ගුණත්වය වැඩි කරනවා.",
-            "Plant එකේ growth stage එක manually බලලා above recommendations වලින් තෝරාගන්න."
+            "Take a photo with clear leaves, flowers, or fruits for growth stage detection.",
+            "Balanced NPK fertilizer is good for general growth.",
+            "Regular organic compost application improves soil quality.",
+            "Manually check plant growth stage and choose from the above recommendations."
         ])
 
-    # Day name mapping for forecast (Sinhala to index)
+    # Day name mapping for forecast (English day names to index)
     day_to_index = {
-        "සඳුදා": 0,    # Monday
-        "අඟහරුවාදා": 1,  # Tuesday
-        "බදාදා": 2,    # Wednesday
-        "බ්‍රහස්පතින්දා": 3,  # Thursday
-        "සිකුරාදා": 4,  # Friday
-        "සෙනසුරාදා": 5   # Saturday
+        "Monday": 0,
+        "Tuesday": 1,
+        "Wednesday": 2,
+        "Thursday": 3,
+        "Friday": 4,
+        "Saturday": 5
     }
 
     # Apply weather factor - use forecast if available
@@ -373,10 +485,10 @@ def generate_fertilizer_plan(
                 # Calculate day-specific weather factor
                 if day_condition == "rainy":
                     day_weather_factor = 0.7
-                    day_specific_warning = f"🌧️ {day_plan['day']} වැස්ස - පොහොර අඩු කරලා තියෙනවා"
+                    day_specific_warning = f"🌧️ {day_plan['day']} - Rainy weather, fertilizer amount reduced"
                 elif day_condition == "sunny" and day_temp and day_temp > 32:
                     day_weather_factor = 1.0
-                    day_specific_warning = f"☀️ {day_plan['day']} උණුසුම් - හවස වරුවේ පොහොර යොදන්න"
+                    day_specific_warning = f"☀️ {day_plan['day']} - Hot weather, apply fertilizer in late afternoon"
                 else:
                     day_weather_factor = 1.0
 
@@ -411,13 +523,13 @@ def generate_fertilizer_plan(
 
     # Add forecast-based tips if forecast was used
     if weather_forecast:
-        tips.append("📅 සතියේ weather forecast එක අනුව දවස් වලට පොහොර amounts adjust කරලා තියෙනවා.")
+        tips.append("📅 Fertilizer amounts have been adjusted for each day based on the weekly weather forecast.")
 
         # Count rainy days
         rainy_days = sum(1 for f in weather_forecast if f.get("condition") == "rainy")
         if rainy_days >= 3:
-            warnings.append(f"⚠️ සතියේ දවස් {rainy_days}ක් වැස්ස! Extra drainage සහතික කරගන්න.")
-            tips.append("වැස්ස වැඩි සතියක organic mulch දාන්න - පස erosion අඩු කරනවා.")
+            warnings.append(f"⚠️ {rainy_days} rainy days expected this week! Ensure proper drainage.")
+            tips.append("Apply organic mulch during rainy weeks - it reduces soil erosion.")
 
     return FertilizerRecommendation(
         week_plan=base_plan,

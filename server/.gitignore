@@ -37,5 +37,10 @@ wheels/
 .DS_Store
 Thumbs.db
 
+# YOLO models (can be large)
+
 # Logs
 *.log
+
+# Debug directories
+app/app/debug_images/
