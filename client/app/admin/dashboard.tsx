@@ -117,7 +117,7 @@ export default function AdminDashboard() {
       </View>
 
       {/* Recent Sessions */}
-      <View style={styles.recentContainer}>
+      {/* <View style={styles.recentContainer}>
         <Text style={styles.sectionTitle}>Recent Analyses</Text>
         {stats?.recent_sessions?.map((session) => (
           <View key={session.id} style={styles.sessionCard}>
@@ -127,7 +127,7 @@ export default function AdminDashboard() {
             </Text>
           </View>
         ))}
-      </View>
+      </View> */}
 
       {/* Logout Button */}
       <TouchableOpacity
