@@ -1,259 +1,216 @@
+// Field Management API calls
 import axios, { AxiosInstance } from 'axios';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Types
-export interface DetectionResult {
-  growth_stage: string;
-  confidence: number;
-  leaves_count: number;
-  flowers_count: number;
-  fruits_count: number;
-}
+const API_BASE_URL = Constants.manifest?.extra?.apiBaseUrl || 'http://localhost:8000';
+export const fieldAPI = {
+  // Create a new field
+  createField: async (fieldData: {
+    name: string;
+    area: number;
+    coordinates: Array<{ latitude: number; longitude: number }>;
+    soil_type?: string;
+    climate_zone?: string;
+  }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/fields`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: fieldData.name,
+          area_acres: fieldData.area,
+          boundary_coordinates: fieldData.coordinates.map(coord => ({
+            latitude: coord.latitude,
+            longitude: coord.longitude,
+          })),
+          soil_type: fieldData.soil_type,
+          climate_zone: fieldData.climate_zone,
+        }),
+      });
 
-export interface NPKStatus {
-  level: 'optimal' | 'low' | 'high';
-  current: number;
-  optimal: number;
-}
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create field');
+      }
 
-export interface WeekPlanDay {
-  day: string;
-  fertilizer_type: string;
-  amount: string;
-  amount_adjusted?: string;
-  method: string;
-  watering: string;
-}
-
-export interface Recommendation {
-  npk_status: {
-    nitrogen: NPKStatus;
-    phosphorus: NPKStatus;
-    potassium: NPKStatus;
-  };
-  warnings?: string[];
-  week_plan: WeekPlanDay[];
-  tips?: string[];
-}
-
-export interface FullAnalysisResult {
-  detection: DetectionResult;
-  recommendation: Recommendation;
-}
-
-export interface NPKData {
-  nitrogen: number;
-  phosphorus: number;
-  potassium: number;
-}
-
-export interface WeatherData {
-  condition: string;
-  temperature: number;
-  humidity: number;
-  description: string;
-  timestamp: string;
-  location?: string;
-}
-
-export interface ForecastDay {
-  date: string;
-  condition: string;
-  temperature: number;
-  temp_min: number;
-  temp_max: number;
-  humidity: number;
-}
-
-export interface Location {
-  latitude: number;
-  longitude: number;
-}
-
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.4:8000';
-
-const api: AxiosInstance = axios.create({
-  baseURL: API_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating field:', error);
+      throw error;
+    }
   },
-});
 
-// Helper: Create file object from URI
-const createFileFromUri = (imageUri: string) => {
-  const filename = imageUri.split('/').pop() || 'photo.jpg';
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : 'image/jpeg';
-  
-  return { uri: imageUri, name: filename, type } as any;
-};
+  // Get all fields
+  getFields: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/fields`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-// Helper: Create FormData with image
-const createImageFormData = (imageUri: string): FormData => {
-  const formData = new FormData();
-  formData.append('file', createFileFromUri(imageUri));
-  return formData;
-};
+      if (!response.ok) {
+        throw new Error('Failed to fetch fields');
+      }
 
-// Helper: Append optional fields to FormData
-const appendOptionalFields = (
-  formData: FormData,
-  fields: Record<string, any>
-): void => {
-  Object.entries(fields).forEach(([key, value]) => {
-    if (value !== null && value !== undefined) {
-      formData.append(key, value.toString());
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching fields:', error);
+      throw error;
     }
-  });
-};
+  },
 
-// Helper: Handle API errors
-const handleApiError = (error: any, context: string): never => {
-  console.error(`${context} error:`, error);
-  throw error;
-};
+  // Get a specific field by ID
+  getField: async (fieldId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/fields/${fieldId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-export const detectPlant = async (imageUri: string): Promise<DetectionResult> => {
-  try {
-    const formData = createImageFormData(imageUri);
-    const response = await api.post<DetectionResult>('/api/growth/detect', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Detection');
-  }
-};
+      if (!response.ok) {
+        throw new Error('Failed to fetch field');
+      }
 
-export const getRecommendation = async (
-  data: {
-    growth_stage: string;
-    npk_levels: NPKData;
-    latitude?: number | null;
-    longitude?: number | null;
-    weather_condition?: string | null;
-    temperature?: number | null;
-    ph?: number | null;
-    humidity?: number | null;
-  }
-): Promise<Recommendation> => {
-  try {
-    const response = await api.post<Recommendation>('/api/growth/recommend', data);
-    return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Recommendation');
-  }
-};
-
-export const getFullAnalysis = async (
-  imageUri: string,
-  npkData: NPKData,
-  location?: Location | null,
-  weather?: string | null,
-  temperature?: number | null,
-  ph?: number | null,
-  humidity?: number | null
-): Promise<FullAnalysisResult> => {
-  try {
-    const formData = createImageFormData(imageUri);
-    
-    Object.entries(npkData).forEach(([key, value]) => {
-      formData.append(key, value.toString());
-    });
-
-    appendOptionalFields(formData, {
-      latitude: location?.latitude,
-      longitude: location?.longitude,
-      weather,
-      temperature,
-      ph,
-      humidity,
-    });
-
-    const response = await api.post<FullAnalysisResult>('/api/growth/full_analysis', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Full analysis');
-  }
-};
-
-export const getCurrentWeather = async (
-  location: Location
-): Promise<WeatherData> => {
-  try {
-    const response = await api.get<{ success: boolean; data: WeatherData }>(
-      '/api/growth/weather',
-      { params: location }
-    );
-    return response.data.data;
-  } catch (error) {
-    return handleApiError(error, 'Weather API');
-  }
-};
-
-export const getWeatherForecast = async (
-  location: Location,
-  days: number = 7
-): Promise<ForecastDay[]> => {
-  try {
-    const response = await api.get<{
-      success: boolean;
-      data: ForecastDay[];
-      days: number;
-    }>('/api/growth/forecast', {
-      params: { ...location, days: Math.min(days, 7) },
-    });
-    return response.data.data;
-  } catch (error) {
-    return handleApiError(error, 'Forecast API');
-  }
-};
-
-
-export const checkAPIStatus = async (): Promise<boolean> => {
-  try {
-    const response = await api.get('/');
-    return response.status === 200;
-  } catch (error) {
-    return false;
-  }
-};
-
-
-export const uploadImage = async (imageUri: string): Promise<any> => {
-  try {
-    const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'upload.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      formData.append('file', blob, filename);
-    } else {
-      formData.append('file', createFileFromUri(imageUri));
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching field:', error);
+      throw error;
     }
+  },
 
-    const response = await api.post('/api/disease', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  } catch (error) {
-    return handleApiError(error, 'Upload');
-  }
+  // Update a field
+  updateField: async (fieldId: string, fieldData: any) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/fields/${fieldId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fieldData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update field');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating field:', error);
+      throw error;
+    }
+  },
+
+  // Delete a field
+  deleteField: async (fieldId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/fields/${fieldId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete field');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting field:', error);
+      throw error;
+    }
+  },
 };
 
-export default {
-  detectPlant,
-  getRecommendation,
-  getFullAnalysis,
-  getCurrentWeather,
-  getWeatherForecast,
-  checkAPIStatus,
-  uploadImage,
+// Spacing calculation API
+export const spacingAPI = {
+  calculateSpacing: async (soilType: string, climateZone: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/spacing/calculate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          soil_type: soilType,
+          climate_zone: climateZone,
+          crop_type: 'scotch_bonnet', // You can make this dynamic
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to calculate spacing');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error calculating spacing:', error);
+      throw error;
+    }
+  },
+};
+
+// Soil analysis API
+export const soilAPI = {
+  analyzeSoil: async (soilData: {
+    ph: number;
+    organic_matter: number;
+    soil_type: string;
+    field_id?: string;
+  }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/soil/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(soilData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze soil');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error analyzing soil:', error);
+      throw error;
+    }
+  },
+};
+
+// Layout generation API
+export const layoutAPI = {
+  generateLayout: async (layoutData: {
+    field_id: string;
+    spacing: { row: number; plant: number };
+    area_acres: number;
+  }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/planting/layout/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(layoutData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate layout');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating layout:', error);
+      throw error;
+    }
+  },
 };
