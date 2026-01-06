@@ -169,6 +169,7 @@ def generate_fertilizer_plan(
     warnings = []
     tips = []
 
+
     if ph is not None:
         if ph < 5.5:
             warnings.append(f"⚠️ Soil pH ({ph:.1f}) is too acidic! Apply Dolomite Lime 4 ton/ha to raise pH.")
@@ -227,7 +228,7 @@ def generate_fertilizer_plan(
         if 20 <= temperature <= 30:
             tips.append(f"✅ Temperature ({temperature:.0f}°C) is ideal for Scotch bonnet cultivation!")
 
-    if growth_stage == "early_vegetative":
+    if growth_stage == "Early Vegetative Stage":
         base_plan = [
             {
                 "day": "Monday",
@@ -251,7 +252,7 @@ def generate_fertilizer_plan(
             "Continue this schedule until plants reach 15-20 cm in height."
         ])
 
-    elif growth_stage == "vegetative":
+    elif growth_stage == "Vegetative Stage":
         base_plan = [
             {
                 "day": "Monday",
@@ -280,7 +281,7 @@ def generate_fertilizer_plan(
             "Maintain soil moisture for better nutrient uptake."
         ])
 
-    elif growth_stage == "flowering":
+    elif growth_stage == "Flowering Stage":
         base_plan = [
             {
                 "day": "Monday",
@@ -326,7 +327,7 @@ def generate_fertilizer_plan(
             "Apply Gypsum (20g per plant) if sulfur and calcium are needed."
         ])
 
-    elif growth_stage == "fruiting":
+    elif growth_stage == "Fruiting Stage":
         base_plan = [
             {
                 "day": "Monday",
@@ -372,7 +373,7 @@ def generate_fertilizer_plan(
             "Reduce watering slightly to enhance fruit flavor."
         ])
 
-    elif growth_stage == "ripening":
+    elif growth_stage == "Ripening/Harvesting Stage":
         base_plan = [
             {
                 "day": "Monday",

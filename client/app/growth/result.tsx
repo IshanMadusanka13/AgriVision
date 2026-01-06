@@ -115,7 +115,7 @@ export default function ResultScreen() {
       )}
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)')}>
+        <TouchableOpacity style={styles.button} onPress={() => router.push('/')}>
           <Text style={styles.buttonText}>🏠 Home</Text>
         </TouchableOpacity>
 

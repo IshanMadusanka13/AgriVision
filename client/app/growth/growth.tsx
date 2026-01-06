@@ -50,22 +50,17 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* API Status */}
+      {/* Features Header */}
       <View style={styles.statusContainer}>
-        <View style={[styles.statusBadge, apiStatus === 'online' && styles.statusOnline]}>
-          <View style={[styles.statusDot, apiStatus === 'online' && styles.dotOnline]} />
-          <Text style={styles.statusText}>
-            {apiStatus === 'checking' ? 'Checking...' : apiStatus === 'online' ? 'API Online' : 'API Offline'}
-          </Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.sectionTitle}>Features</Text>
+          <View style={styles.dividerLine} />
         </View>
-        <TouchableOpacity onPress={checkAPI} style={styles.refreshButton}>
-          <Text style={styles.refreshText}>🔄 Refresh</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Features */}
       <View style={styles.featuresContainer}>
-        <Text style={styles.sectionTitle}>Features</Text>
 
         <View style={styles.featureCard}>
           <Text style={styles.featureIcon}>📸</Text>
@@ -158,7 +153,7 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
     backgroundColor: '#fff',
@@ -170,6 +165,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#10b981',
+    marginHorizontal: 12,
+    opacity: 0.3,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -212,8 +220,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16,
+    color: '#10b981',
+    letterSpacing: 0.5,
   },
   featureCard: {
     backgroundColor: '#fff',

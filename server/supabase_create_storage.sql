@@ -1,6 +1,3 @@
--- Create Supabase Storage bucket for plant images
--- Run this in Supabase SQL Editor or Dashboard
-
 -- Create storage bucket (if not exists)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('plant-images', 'plant-images', true)

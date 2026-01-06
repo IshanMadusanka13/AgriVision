@@ -1,7 +1,3 @@
--- Supabase Database Schema for AgriVision
--- This schema stores all user input data including NPK values, environmental data,
--- images, growth stage detection, weather forecasts, and fertilizer recommendations
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

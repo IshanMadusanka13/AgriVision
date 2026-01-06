@@ -52,6 +52,12 @@ supabase_service = SupabaseService()
 
 router = APIRouter()
 
+# Load YOLO model from environment variable
+model_path = os.getenv('GROWTH_MODEL_PATH', 'models/growth.pt')
+if not os.path.isabs(model_path):
+    model_path = os.path.join(os.path.dirname(__file__), '..', model_path)
+model = YOLO(model_path)
+
 
 class FertilizerRequest(BaseModel):
     growth_stage: str

@@ -136,7 +136,7 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.2.44:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.12:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
