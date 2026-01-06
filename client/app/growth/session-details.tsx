@@ -1,6 +1,3 @@
-// app/growth/session-details.tsx
-// Detailed view of a specific analysis session
-
 import React, { useEffect, useState } from 'react';
 import {
   View,

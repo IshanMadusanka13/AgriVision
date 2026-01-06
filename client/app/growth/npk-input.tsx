@@ -1,6 +1,3 @@
-// app/npk-input.tsx
-// NPK input screen for entering soil fertilizer levels
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -94,22 +91,10 @@ export default function NPKInputScreen() {
       const weatherData = await getCurrentWeather(userLoc);
 
       if (weatherData) {
-        // Try to get location name
-        let locationName = 'Your Location';
-        try {
-          const [address] = await Location.reverseGeocodeAsync({
-            latitude: userLoc.latitude,
-            longitude: userLoc.longitude,
-          });
-          locationName = address.city || address.district || address.subregion || 'Your Location';
-        } catch (err) {
-          console.warn('Could not get location name:', err);
-        }
 
         // Set weather data with location name
         setDetectedWeather({
           ...weatherData,
-          location: locationName,
         });
         setWeather(weatherData.condition);
         setTemperature(weatherData.temperature.toString());
@@ -164,8 +149,6 @@ export default function NPKInputScreen() {
       // Get location name from detected weather or default
       const locationName = detectedWeather?.location || null;
 
-      console.log('Submitting analysis with user email:', userEmail);
-
       const result = await getFullAnalysis(
         imageUri,
         { nitrogen: n, phosphorus: p, potassium: k },
@@ -206,7 +189,7 @@ export default function NPKInputScreen() {
             <Text style={styles.summaryLabel}>Growth Stage</Text>
             <Text style={styles.summaryValue}>{detection.growth_stage}</Text>
           </View>
-          <View style={styles.summaryItem}>
+          {/* <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Leaves</Text>
             <Text style={styles.summaryValue}>{detection.leaves_count}</Text>
           </View>
@@ -217,7 +200,7 @@ export default function NPKInputScreen() {
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Fruits</Text>
             <Text style={styles.summaryValue}>{detection.fruits_count}</Text>
-          </View>
+          </View> */}
         </View>
       </View>
 

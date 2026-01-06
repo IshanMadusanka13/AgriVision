@@ -1,6 +1,3 @@
-// app/growth/history.tsx
-// User's analysis history screen
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -194,7 +191,7 @@ export default function HistoryScreen() {
       </Text>
       <TouchableOpacity
         style={styles.startButton}
-        onPress={() => router.push('/')}
+        onPress={() => router.push('/growth/camera')}
       >
         <Text style={styles.startButtonText}>Start Analysis</Text>
       </TouchableOpacity>

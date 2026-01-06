@@ -1,6 +1,3 @@
-// app/result.tsx
-// Display analysis results and fertilizer recommendations
-
 import React from 'react';
 import {
   View,
@@ -55,11 +52,11 @@ export default function ResultScreen() {
             <Text style={styles.detectionLabel}>Growth Stage</Text>
             <Text style={styles.detectionValue}>{detection.growth_stage}</Text>
           </View>
-          <View style={styles.detectionItem}>
+          {/* <View style={styles.detectionItem}>
             <Text style={styles.detectionLabel}>Confidence</Text>
             <Text style={styles.detectionValue}>{detection.confidence.toFixed(1)}%</Text>
-          </View>
-          <View style={styles.detectionItem}>
+          </View> */}
+          {/* <View style={styles.detectionItem}>
             <Text style={styles.detectionLabel}>Leaves</Text>
             <Text style={styles.detectionValue}>{detection.leaves_count}</Text>
           </View>
@@ -70,7 +67,7 @@ export default function ResultScreen() {
           <View style={styles.detectionItem}>
             <Text style={styles.detectionLabel}>Fruits</Text>
             <Text style={styles.detectionValue}>{detection.fruits_count}</Text>
-          </View>
+          </View> */}
         </View>
       </View>
 
@@ -140,13 +137,13 @@ export default function ResultScreen() {
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={() => router.push('/')}>
+        <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)')}>
           <Text style={styles.buttonText}>🏠 Home</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.primaryButton]}
-          onPress={() => router.push('/camera')}
+          onPress={() => router.push('/growth/camera')}
         >
           <Text style={[styles.buttonText, styles.primaryButtonText]}>
             📸 New Analysis
