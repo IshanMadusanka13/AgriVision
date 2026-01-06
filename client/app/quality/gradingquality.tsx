@@ -45,7 +45,7 @@ export default function gradingquality() {
     upload();
   }, []);
 
-  /* ✅ ONLY LOADING SCREEN CHANGE */
+ 
   if (loading || !result) {
     return (
       <SafeAreaView style={styles.loadingSafe}>
@@ -69,7 +69,7 @@ export default function gradingquality() {
     setExpandedUsage(expandedUsage === grade ? null : grade);
   };
 
-  // ✅ Show message if all counts are zero, centered with text + Try Again button
+
   if (allZero) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -93,7 +93,7 @@ export default function gradingquality() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Grading Result</Text>
+        <Text style={styles.title}>📊 Grading Result</Text>
 
         <View style={styles.imageWrapper}>
           <Image source={{ uri: firstImageUri }} style={styles.image} />
@@ -120,16 +120,14 @@ export default function gradingquality() {
           </Text>
 
           <Text style={styles.desc}>
-            මෙම කාණ්ඩය ඉතාමත්ම උසස් තත්ත්වයේ Scotch Bonnet මිරිස්
-            නිරූපණය කරයි. පැහැය ස්ථාවර කොළ පැහැයෙන් යුක්ත වන අතර කිසිදු
-            කැළැල්, වියළීම හෝ විකෘති හැඩතල නොපවතී.
-          </Text>
+          This category represents a very high-quality Scotch Bonnet. 
+          The color is consistently green, with no blemishes, drying, or deformed shapes.
+        </Text>
 
           {expandedUsage === "A" && (
-            <Text style={styles.usage}>
-              🔹 භාවිතය: Export වෙළඳපොළ, Supermarket chains සහ Premium
-              buyers සඳහා ඉතාමත් සුදුසුය.
-            </Text>
+           <Text style={styles.usage}>
+            🔹 Usage: Highly suitable for export markets, supermarket chains, and premium buyers.
+          </Text>
           )}
         </View>
 
@@ -154,15 +152,16 @@ export default function gradingquality() {
           </Text>
 
           <Text style={styles.desc}>
-            හොඳ තත්ත්වයේ Scotch Bonnet මිරිස් වේ. පැහැය කොළ සහ කහ පැහැ
-            මිශ්‍රව පවතින අතර Grade A මට්ටමට වඩා සුළු අඩුපාඩු පවතී.
-          </Text>
+          This is a good-quality Scotch Bonnet. The color is a mix of green and yellow, 
+          with no blemishes, drying, or deformed shapes.
+        </Text>
+
 
           {expandedUsage === "B" && (
             <Text style={styles.usage}>
-              🔹 භාවිතය: සාමාන්‍ය වෙළඳපොළ, හෝටල් kitchen සහ pickle
-              සකස් කිරීම සඳහා සුදුසුය.
-            </Text>
+            🔹 Usage: Suitable for general markets, hotel kitchens, and pickle preparation.
+          </Text>
+
           )}
         </View>
 
@@ -187,15 +186,15 @@ export default function gradingquality() {
           </Text>
 
           <Text style={styles.desc}>
-            මෙම කාණ්ඩයේ මිරිස් තැබිලි හෝ රතු පැහැයට පත් වී ඇත. සමහරවිට
-            හැඩය සම්පූර්ණ නොවීම හෝ කුඩා කැළැල් පවතිනවා විය හැක.
-          </Text>
+          The peppers in this category are orange or red in color. 
+          Some may have slightly irregular shapes.
+        </Text>
 
           {expandedUsage === "C" && (
             <Text style={styles.usage}>
-              🔹 භාවිතය: Sauce, chilli paste, chilli powder, drying වැනි
-              processing කටයුතු සඳහා භාවිතා කරයි.
-            </Text>
+            🔹 Usage: Used for processing into sauces, pastes, powders, or for drying.
+          </Text>
+
           )}
         </View>
 
@@ -220,15 +219,15 @@ export default function gradingquality() {
           </Text>
 
           <Text style={styles.desc}>
-            මෙම කාණ්ඩයේ මිරිස් වල කැළැල්, වියළීම, පළිබෝධ හානි සහ විකෘති
-            හැඩතල පැහැදිලිව දැකිය හැක.
+            In this category, peppers clearly show blemishes, drying, pest damage, and deformed shapes.
           </Text>
+
 
           {expandedUsage === "D" && (
             <Text style={styles.usage}>
-              🔹 භාවිතය: මනුෂ්‍ය ආහාරයට සුදුසු නොවන අතර Compost, සත්ව
-              ආහාර හෝ කර්මාන්ත සඳහා භාවිතා කරයි.
-            </Text>
+          🔹 Usage: Not suitable for human consumption; used for compost, animal feed, or industrial purposes.
+        </Text>
+
           )}
         </View>
 
@@ -245,7 +244,7 @@ export default function gradingquality() {
           <View style={styles.modalBg}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>
-                Scotch Bonnet ගුණාත්මක ශ්‍රේණිගත කිරීම
+                Scotch Bonnet Quality Grading
               </Text>
 
               <Text
@@ -254,8 +253,8 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category A"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade A:</Text> කොළ පැහැය – ඉතා උසස්
-                තත්ත්වය. Export සහ Supermarket සඳහා සුදුසුය.
+                <Text style={styles.bold}>Grade A:</Text> Green color – Excellent quality. Suitable
+                 for export and supermarket sales.
               </Text>
 
               <Text
@@ -264,8 +263,9 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category B"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade B:</Text> කොළ හා කහ පැහැ මිශ්‍ර –
-                හොඳ තත්ත්වය. සාමාන්‍ය වෙළඳපොළ සහ hotel use සඳහා සුදුසුය.
+                <Text style={styles.bold}>Grade B:</Text> Green & yellow mix color – Good quality. 
+                Suitable for general markets and hotel use.
+
               </Text>
 
               <Text
@@ -274,9 +274,9 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category C"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade C:</Text> රතු / තැබිලි පැහැය –
-                processing සඳහා සුදුසු. Sauce, powder, drying වැනි කටයුතු
-                සඳහා භාවිතා කරයි.
+                <Text style={styles.bold}>Grade C:</Text> Red & orange color – Suitable for processing. Used for sauces, powders, 
+                drying, and similar purposes.
+
               </Text>
 
               <Text
@@ -285,9 +285,9 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category D"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade D:</Text> විශේෂ සැකසීමකින්
-                තොරව භාවිතයට නොසොදුසු තත්වයේ කාණ්ඩයයි. Compost සහ
-                කර්මාන්ත සඳහා භාවිතා කරයි.
+                <Text style={styles.bold}>Grade D:</Text> This category is not suitable for use without 
+                special processing. Used for compost and industrial purposes.
+
               </Text>
 
               <TouchableOpacity
@@ -322,7 +322,7 @@ export default function gradingquality() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
 
-  /* LOADING STYLES (ONLY ADDITION) */
+  
   loadingSafe: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: {
     flex: 1,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: "700" },
   cardCount: { fontWeight: "600", marginBottom: 4 },
   viewBtn: { color: "#10b981", fontWeight: "700" },
-  desc: { fontSize: 13, color: "#374151", marginBottom: 6 },
+  desc: { fontSize: 14, color: "#374151", marginBottom: 6 },
   usage: { fontSize: 13, color: "#065f46" },
 
   infoBtn: {

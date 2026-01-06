@@ -17,7 +17,7 @@ export default function BatchAnalysis() {
   const currentBatch = {
     batchId: "Batch-2026-01",
     total: 20,
-    grades: { A: 9, B: 6, C: 3, D: 2 },
+    grades: { A: 9, B: 6, C: 3, D: 1 },
   };
 
   // ---------------- CALCULATIONS ----------------
@@ -29,23 +29,24 @@ export default function BatchAnalysis() {
   const prevD = calcPercentage(previousBatch.grades.D, previousBatch.total);
   const currD = calcPercentage(currentBatch.grades.D, currentBatch.total);
 
-  let trendText = "ගුණාත්මකභාවය ස්ථාවර වේ.";
-  let trendColor = "#16a34a";
+ let trendText = "Quality remains stable.";
+let trendColor = "#16a34a";
 
-  if (currA > prevA && currD <= prevD) {
-    trendText = "මෙම කණ්ඩායමේ ගුණාත්මකභාවය වැඩි වී ඇත 📈";
-    trendColor = "#16a34a";
-  } else if (currA < prevA || currD > prevD) {
-    trendText = "මෙම කණ්ඩායමේ ගුණාත්මකභාවය අඩු වී ඇත 📉";
-    trendColor = "#dc2626";
-  }
+if (currA > prevA && currD <= prevD) {
+  trendText = "The quality of this batch category has improved 📈";
+  trendColor = "#16a34a";
+} else if (currA < prevA || currD > prevD) {
+  trendText = "The quality of this category has declined 📉";
+  trendColor = "#dc2626";
+}
+
 
   // ---------------- UI ----------------
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Title */}
-      <Text style={styles.title}>📊 කාණ්ඩ විශ්ලේෂණ වාර්තාව</Text>
-      <Text style={styles.subtitle}>Scotch Bonnet Grade Comparison</Text>
+      <Text style={styles.title}>📊 Category Analysis Report</Text>
+<Text style={styles.subtitle}>Scotch Bonnet Grade Comparison</Text>
 
       {/* Previous Batch */}
       <View style={styles.card}>
@@ -77,16 +78,16 @@ export default function BatchAnalysis() {
       </View>
 
       {/* Summary */}
-      <View style={styles.summaryBox}>
-        <Text style={styles.summaryTitle}>📌 විශ්ලේෂණ සාරාංශය</Text>
-        <Text style={styles.summaryText}>
-          පසුගිය කණ්ඩායම හා සසඳන විට මෙම Scotch Bonnet කණ්ඩායමේ
-          Grade A ප්‍රතිශතය වැඩි වී 있으며,
-          Grade D ප්‍රමාණය අඩු වී ඇත.
-          මෙය වෙළඳපොළ හා අපනයනය සඳහා ඉතා හොඳ ගුණාත්මක තත්ත්වයක් බව
-          පෙන්වයි.
-        </Text>
-      </View>
+<View style={styles.summaryBox}>
+  <Text style={styles.summaryTitle}>📌 Analysis Summary</Text>
+  <Text style={styles.summaryText}>
+    Compared to the previous batch, the percentage of Grade A in this
+    Scotch Bonnet batch has increased, while the amount of Grade D has
+    decreased. This indicates a very good quality level suitable for
+    both market sales and export.
+  </Text>
+</View>
+
     </ScrollView>
   );
 }
