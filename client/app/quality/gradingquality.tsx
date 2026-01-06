@@ -45,7 +45,7 @@ export default function gradingquality() {
     upload();
   }, []);
 
-  /* ✅ ONLY LOADING SCREEN CHANGE */
+ 
   if (loading || !result) {
     return (
       <SafeAreaView style={styles.loadingSafe}>
@@ -69,7 +69,7 @@ export default function gradingquality() {
     setExpandedUsage(expandedUsage === grade ? null : grade);
   };
 
-  // ✅ Show message if all counts are zero, centered with text + Try Again button
+
   if (allZero) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -322,7 +322,7 @@ export default function gradingquality() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
 
-  /* LOADING STYLES (ONLY ADDITION) */
+  
   loadingSafe: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: {
     flex: 1,
