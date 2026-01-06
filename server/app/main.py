@@ -7,7 +7,9 @@ from routes.growth_router import router as growth_router
 from routes.quality_router import router as quality_router
 from routes.auth_router import router as auth_router
 from routes.admin_router import router as admin_router
-from routes.planting import field_management_router, layout_generator_router, planting_router
+from routes.planting.field_management_router import router as field_management_router
+from routes.planting.layout_generator_router import router as layout_generator_router
+from routes.planting.planting_router import router as planting_router
 
 app = FastAPI(title="AgriVision API", version="1.0.0")
 app.add_middleware(
