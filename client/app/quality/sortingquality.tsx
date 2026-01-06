@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams ,useRouter } from "expo-router";
 import Svg, { Rect, Text as SvgText, G, Path } from "react-native-svg";
 
 export default function SortingQuality() {
@@ -72,42 +72,6 @@ export default function SortingQuality() {
       Animated.spring(maxAnim, { toValue: 1, useNativeDriver: true }),
     ]).start();
   }, []);
-
-  // Pie chart calculations
-  const radius = 100;
-  const center = radius;
-  const total = categoryCounts.reduce((sum, c) => sum + c.count, 0);
-
-  const piePaths: { pathData: string; color: string; category: string; percentage: number; midAngle: number }[] = [];
-  let startAngle = 0;
-
-  categoryCounts.forEach((c) => {
-    const sliceAngle = (c.count / total) * 2 * Math.PI;
-    const endAngle = startAngle + sliceAngle;
-
-    const x1 = center + radius * Math.cos(startAngle);
-    const y1 = center + radius * Math.sin(startAngle);
-    const x2 = center + radius * Math.cos(endAngle);
-    const y2 = center + radius * Math.sin(endAngle);
-    const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
-
-    const pathData = `M${center},${center} L${x1},${y1} A${radius},${radius} 0 ${largeArcFlag} 1 ${x2},${y2} Z`;
-    const midAngle = startAngle + sliceAngle / 2;
-
-    piePaths.push({
-      pathData,
-      color: gradeColors[c.category],
-      category: c.category,
-      percentage: c.percentage,
-      midAngle,
-    });
-
-    startAngle = endAngle;
-  });
-
-  const handleAnalysis = () => {
-    Alert.alert("View Analysis", "Navigation or analysis logic goes here.");
-  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

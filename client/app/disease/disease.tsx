@@ -14,7 +14,7 @@ export default function DiseaseScreen() {
   const router = useRouter();
 
   const handleStartAnalysis = () => {
-    router.push("/disease/disease-camera" as any);
+    router.push("/disease/camera" as any);
   };
 
   const goToHistory = () => {
