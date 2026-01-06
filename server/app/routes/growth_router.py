@@ -159,7 +159,7 @@ async def detect_plant(file: UploadFile = File(...)):
             "flowering": "Flowering Stage",
             "fruiting": "Fruiting Stage",
             "ripening": "Ripening/Harvesting Stage",
-            "unknown": "Unknown (Not a Scotch Bonnet plant)"
+            "unknown": "Not a Scotch Bonnet plant"
         }
         growth_stage = stage_map.get(growth_stage_key, "Unknown Stage")
 
@@ -298,7 +298,7 @@ async def full_analysis(
             "flowering": "Flowering Stage",
             "fruiting": "Fruiting Stage",
             "ripening": "Ripening/Harvesting Stage",
-            "unknown": "Unknown (Not a Scotch Bonnet plant)"
+            "unknown": "Not a Scotch Bonnet plant"
         }
         growth_stage = stage_map.get(growth_stage_key, "Unknown Stage")
 

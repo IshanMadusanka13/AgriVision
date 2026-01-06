@@ -1,6 +1,3 @@
-// app/(tabs)/index.tsx
-// Home screen with navigation options
-
 import React, { useState, useEffect } from 'react';
 import {
   View,

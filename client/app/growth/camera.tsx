@@ -1,6 +1,3 @@
-// app/camera.tsx
-// Camera screen for taking or selecting plant photos
-
 import React, { useState } from 'react';
 import {
   View,
@@ -107,29 +104,34 @@ export default function CameraScreen() {
       const result = await detectPlant(selectedImage);
       setDetectionResult(result);
 
+      const buttons = result.growth_stage !== 'Not a Scotch Bonnet plant'
+        ? [
+            {
+              text: 'Next: NPK Input',
+              onPress: () =>
+                router.push({
+                  pathname: '/growth/npk-input',
+                  params: {
+                    imageUri: selectedImage,
+                    growth_stage: result.growth_stage,
+                    confidence: result.confidence.toString(),
+                    leaves_count: result.leaves_count.toString(),
+                    flowers_count: result.flowers_count.toString(),
+                    fruits_count: result.fruits_count.toString(),
+                  },
+                }),
+            },
+          ]
+        : [
+            { text: 'Retake', onPress: () => setSelectedImage(null) },
+          ];
+
       Alert.alert(
         'Detection Complete',
-        `Growth Stage: ${result.growth_stage}\nLeaves: ${result.leaves_count}\nFlowers: ${result.flowers_count}\nFruits: ${result.fruits_count}`,
-        [
-          {
-            text: 'Next: NPK Input',
-            onPress: () =>
-              router.push({
-                pathname: '/growth/npk-input',
-                params: {
-                  imageUri: selectedImage,
-                  growth_stage: result.growth_stage,
-                  confidence: result.confidence.toString(),
-                  leaves_count: result.leaves_count.toString(),
-                  flowers_count: result.flowers_count.toString(),
-                  fruits_count: result.fruits_count.toString(),
-                },
-              }),
-          },
-          { text: 'Retake', onPress: () => setSelectedImage(null) },
-        ]
+        `Growth Stage: ${result.growth_stage}\n`,
+        buttons
       );
-    } catch (error) {
+    }catch (error) {
       Alert.alert(
         'Detection Failed',
         'Failed to detect plant. Make sure backend is running.',

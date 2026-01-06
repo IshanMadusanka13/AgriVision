@@ -13,7 +13,7 @@ load_dotenv()
 
 # OpenWeatherMap API configuration
 WEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "8a266cfd312cab31047b5fa79956f489")
-WEATHER_API_BASE_URL = "https://api.openweathermap.org/data/2.5"
+WEATHER_API_BASE_URL = os.getenv("WEATHER_API_BASE_URL", "https://api.openweathermap.org/data/2.5")
 
 
 class WeatherService:
@@ -60,7 +60,8 @@ class WeatherService:
                 "temperature": data["main"]["temp"],
                 "humidity": data["main"]["humidity"],
                 "description": data["weather"][0]["description"],
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "location": data["name"]
             }
 
             print(f"✅ Current weather: {result['condition']} ({result['temperature']:.1f}°C, {result['humidity']}% humidity)")
