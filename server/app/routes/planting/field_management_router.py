@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 import uuid
 from typing import List
 
-from app.configs.database import Base, get_db
-from app.models.planting.field_models import Field
-from app.schemas.planting.geojson_schemas import FieldCreateRequest
+from configs.database import Base, get_db
+from models.planting.field_models import Field
+from schemas.planting.geojson_schemas import FieldCreateRequest
 
 router = APIRouter(prefix="/fields", tags=["Field Management"])
 

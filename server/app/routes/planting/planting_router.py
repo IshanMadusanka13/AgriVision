@@ -5,17 +5,17 @@ import uuid
 from datetime import datetime
 
 # Import YOUR database
-from app.configs.database import Base, get_db
+from configs.database import Base, get_db
 
 # Import models
-from app.models.planting.planting_models import PlantingCalculation
+from models.planting.planting_models import PlantingCalculation
 
 # Import services
-from app.services.planting.planting_service import planting_service
-from app.services.planting.optimization import planting_optimizer
+from services.planting.planting_service import planting_service
+from services.planting.optimization import planting_optimizer
 
 # Import schemas
-from app.schemas.planting.planting_schemas import (
+from schemas.planting.planting_schemas import (
     PlantingRequest, PlantingResponse, SpacingResult,
     DensityResult, FertilizerResult, SuitabilityResult, OptimizationResult
 )
