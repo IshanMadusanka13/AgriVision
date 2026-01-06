@@ -4,7 +4,6 @@ from typing import Optional, List, Dict, Any
 import json
 import os
 
-# Import Supabase service
 try:
     from services.supabase_service import SupabaseService
 except ImportError:
@@ -13,8 +12,6 @@ except ImportError:
 router = APIRouter()
 supabase_service = SupabaseService()
 
-
-# ==================== Models ====================
 
 class UpdateRecommendationRequest(BaseModel):
     warnings: Optional[List[str]] = None
@@ -41,18 +38,8 @@ class UpdateGrowthStageConfigRequest(BaseModel):
     configs: List[GrowthStageConfig]
 
 
-# ==================== Admin Authentication Dependency ====================
-
 async def verify_admin(user_email: str = Header(..., alias="X-User-Email")):
-    """
-    Verify that the user is an admin
-
-    Args:
-        user_email: User email from request header
-
-    Returns:
-        User data if admin, raises HTTPException otherwise
-    """
+    
     user = supabase_service.get_user_by_email(user_email)
 
     if not user:
@@ -70,26 +57,16 @@ async def verify_admin(user_email: str = Header(..., alias="X-User-Email")):
     return user
 
 
-# ==================== Admin Endpoints ====================
-
 @router.get("/dashboard/stats")
 async def get_dashboard_stats(admin_user: dict = Depends(verify_admin)):
-    """
-    Get admin dashboard statistics
-
-    Returns:
-        Dashboard statistics including user count, analysis count, etc.
-    """
+    
     try:
-        # Get total users count
         users_response = supabase_service.client.table("users").select("id", count="exact").execute()
         total_users = users_response.count if hasattr(users_response, 'count') else len(users_response.data)
 
-        # Get total analysis sessions count
         sessions_response = supabase_service.client.table("analysis_sessions").select("id", count="exact").execute()
         total_sessions = sessions_response.count if hasattr(sessions_response, 'count') else len(sessions_response.data)
 
-        # Get recent sessions (last 10)
         recent_sessions = supabase_service.client.table("analysis_sessions") \
             .select("id, created_at, growth_stage, user_id") \
             .order("created_at", desc=True) \
@@ -113,14 +90,8 @@ async def get_dashboard_stats(admin_user: dict = Depends(verify_admin)):
 
 @router.get("/recommendations/metadata")
 async def get_recommendations_metadata(admin_user: dict = Depends(verify_admin)):
-    """
-    Get all recommendations metadata (warnings and tips)
 
-    Returns:
-        All warnings and tips from the database
-    """
     try:
-        # Get distinct warnings and tips from recommendations_metadata table
         metadata_response = supabase_service.client.table("recommendations_metadata") \
             .select("warnings, tips") \
             .execute()
@@ -151,18 +122,8 @@ async def update_recommendations_metadata(
     request: UpdateRecommendationRequest,
     admin_user: dict = Depends(verify_admin)
 ):
-    """
-    Update global recommendations metadata (warnings and tips)
-    This will be used as a reference for generating recommendations
-
-    Args:
-        request: Updated warnings and tips
-
-    Returns:
-        Success message
-    """
+    
     try:
-        # Store updated metadata in a config file
         config_dir = "app/config"
         os.makedirs(config_dir, exist_ok=True)
         config_file = os.path.join(config_dir, "recommendations_config.json")
@@ -193,12 +154,6 @@ async def update_recommendations_metadata(
 
 @router.get("/growth-stage/config")
 async def get_growth_stage_config(admin_user: dict = Depends(verify_admin)):
-    """
-    Get current growth stage configuration
-
-    Returns:
-        Growth stage configuration for NPK levels and detection thresholds
-    """
     try:
         config_file = "app/config/growth_stage_config.json"
 
@@ -206,7 +161,6 @@ async def get_growth_stage_config(admin_user: dict = Depends(verify_admin)):
             with open(config_file, 'r') as f:
                 config_data = json.load(f)
         else:
-            # Default configuration
             config_data = {
                 "stages": [
                     {
@@ -303,15 +257,7 @@ async def update_growth_stage_config(
     request: UpdateGrowthStageConfigRequest,
     admin_user: dict = Depends(verify_admin)
 ):
-    """
-    Update growth stage configuration
-
-    Args:
-        request: Updated growth stage configurations
-
-    Returns:
-        Success message
-    """
+    
     try:
         config_dir = "app/config"
         os.makedirs(config_dir, exist_ok=True)
@@ -337,12 +283,7 @@ async def update_growth_stage_config(
 
 @router.get("/users")
 async def get_all_users(admin_user: dict = Depends(verify_admin)):
-    """
-    Get all users (admin only)
-
-    Returns:
-        List of all users
-    """
+   
     try:
         users_response = supabase_service.client.table("users") \
             .select("id, email, name, role, created_at") \
@@ -366,16 +307,7 @@ async def get_all_sessions(
     limit: int = 50,
     offset: int = 0
 ):
-    """
-    Get all analysis sessions (admin only)
-
-    Args:
-        limit: Number of sessions to return
-        offset: Offset for pagination
-
-    Returns:
-        List of all analysis sessions
-    """
+    
     try:
         sessions_response = supabase_service.client.table("analysis_sessions") \
             .select("*") \

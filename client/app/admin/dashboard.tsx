@@ -79,7 +79,6 @@ export default function AdminDashboard() {
         <Text style={styles.subtitle}>Manage your AgriVision application</Text>
       </View>
 
-      {/* Statistics Cards */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{stats?.total_users || 0}</Text>
@@ -91,7 +90,6 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={styles.actionButton}
@@ -116,20 +114,6 @@ export default function AdminDashboard() {
         </TouchableOpacity>
       </View>
 
-      {/* Recent Sessions */}
-      {/* <View style={styles.recentContainer}>
-        <Text style={styles.sectionTitle}>Recent Analyses</Text>
-        {stats?.recent_sessions?.map((session) => (
-          <View key={session.id} style={styles.sessionCard}>
-            <Text style={styles.sessionStage}>{session.growth_stage}</Text>
-            <Text style={styles.sessionDate}>
-              {new Date(session.created_at).toLocaleDateString()}
-            </Text>
-          </View>
-        ))}
-      </View> */}
-
-      {/* Logout Button */}
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={async () => {

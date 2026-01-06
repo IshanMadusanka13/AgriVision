@@ -142,7 +142,6 @@ export default function GrowthAnalysisSettings() {
         <View key={config.stage} style={styles.stageCard}>
           <Text style={styles.stageTitle}>{getStageName(config.stage)}</Text>
 
-          {/* Detection Thresholds */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Detection Thresholds</Text>
             <View style={styles.row}>
@@ -209,7 +208,6 @@ export default function GrowthAnalysisSettings() {
             </View>
           </View>
 
-          {/* NPK Levels */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Optimal NPK Levels (mg/kg)</Text>
             <View style={styles.row}>
@@ -278,7 +276,6 @@ export default function GrowthAnalysisSettings() {
         </View>
       ))}
 
-      {/* Save Button */}
       <TouchableOpacity
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}
         onPress={saveConfig}

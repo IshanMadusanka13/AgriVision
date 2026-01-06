@@ -40,7 +40,6 @@ export default function NPKInputScreen() {
   const [userLocation, setUserLocation] = useState<LocationType | null>(null);
   const [autoDetected, setAutoDetected] = useState(false);
 
-  // Helper function for weather icons
   const getWeatherIcon = (condition: string): string => {
     switch (condition) {
       case 'sunny':
@@ -54,7 +53,6 @@ export default function NPKInputScreen() {
     }
   };
 
-  // Auto-detect weather on component mount
   useEffect(() => {
     handleAutoDetectWeather();
   }, []);
@@ -62,7 +60,6 @@ export default function NPKInputScreen() {
   const handleAutoDetectWeather = async () => {
     setWeatherLoading(true);
     try {
-      // Step 1: Request location permission
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
@@ -75,7 +72,6 @@ export default function NPKInputScreen() {
         return;
       }
 
-      // Step 2: Get current location
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -87,12 +83,10 @@ export default function NPKInputScreen() {
 
       setUserLocation(userLoc);
 
-      // Step 3: Get weather data from backend API
       const weatherData = await getCurrentWeather(userLoc);
 
       if (weatherData) {
 
-        // Set weather data with location name
         setDetectedWeather({
           ...weatherData,
         });
@@ -119,7 +113,6 @@ export default function NPKInputScreen() {
   };
 
   const handleSubmit = async () => {
-    // Validate inputs
     if (!nitrogen || !phosphorus || !potassium || !ph) {
       Alert.alert('Input Required', 'Please enter all NPK and pH values');
       return;
@@ -135,7 +128,6 @@ export default function NPKInputScreen() {
       return;
     }
 
-    // Validate pH range
     if (phValue < 0 || phValue > 14) {
       Alert.alert('Invalid pH', 'pH value must be between 0-14');
       return;
@@ -143,22 +135,20 @@ export default function NPKInputScreen() {
 
     setLoading(true);
     try {
-      // Get user email from AsyncStorage
       const userEmail = await AsyncStorage.getItem('userEmail');
 
-      // Get location name from detected weather or default
       const locationName = detectedWeather?.location || null;
 
       const result = await getFullAnalysis(
         imageUri,
         { nitrogen: n, phosphorus: p, potassium: k },
-        userLocation, // Pass location for automatic weather detection
-        autoDetected ? null : weather, // Only pass manual weather if not auto-detected
+        userLocation, 
+        autoDetected ? null : weather, 
         temperature ? parseFloat(temperature) : null,
         phValue,
         detectedWeather?.humidity || null,
-        userEmail, // Pass user email for database save
-        locationName // Pass location name
+        userEmail, 
+        locationName 
       );
 
       router.push({
@@ -181,7 +171,6 @@ export default function NPKInputScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Detection Summary */}
       <View style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>📊 Detection Summary</Text>
         <View style={styles.summaryGrid}>
@@ -189,29 +178,15 @@ export default function NPKInputScreen() {
             <Text style={styles.summaryLabel}>Growth Stage</Text>
             <Text style={styles.summaryValue}>{detection.growth_stage}</Text>
           </View>
-          {/* <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Leaves</Text>
-            <Text style={styles.summaryValue}>{detection.leaves_count}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Flowers</Text>
-            <Text style={styles.summaryValue}>{detection.flowers_count}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Fruits</Text>
-            <Text style={styles.summaryValue}>{detection.fruits_count}</Text>
-          </View> */}
         </View>
       </View>
 
-      {/* NPK Input Section */}
       <View style={styles.inputSection}>
         <Text style={styles.sectionTitle}>🧪 Soil NPK Levels (mg/kg)</Text>
         <Text style={styles.sectionDescription}>
           Test your soil with an NPK meter and enter the values
         </Text>
 
-        {/* Nitrogen Input */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nitrogen (N)</Text>
           <View style={styles.inputContainer}>
@@ -227,7 +202,6 @@ export default function NPKInputScreen() {
           <Text style={styles.hint}>Soil nitrogen level</Text>
         </View>
 
-        {/* Phosphorus Input */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phosphorus (P)</Text>
           <View style={styles.inputContainer}>
@@ -243,7 +217,6 @@ export default function NPKInputScreen() {
           <Text style={styles.hint}>Soil phosphorus level</Text>
         </View>
 
-        {/* Potassium Input */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Potassium (K)</Text>
           <View style={styles.inputContainer}>
@@ -259,7 +232,6 @@ export default function NPKInputScreen() {
           <Text style={styles.hint}>Soil potassium level</Text>
         </View>
 
-        {/* pH Input */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Soil pH</Text>
           <View style={styles.inputContainer}>
@@ -276,7 +248,6 @@ export default function NPKInputScreen() {
         </View>
       </View>
 
-      {/* Weather Section */}
       <View style={styles.inputSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>🌤️ Weather Conditions</Text>
@@ -295,7 +266,6 @@ export default function NPKInputScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Show loading state */}
         {weatherLoading && !detectedWeather && (
           <View style={styles.weatherLoadingCard}>
             <ActivityIndicator size="large" color="#10b981" />
@@ -304,7 +274,6 @@ export default function NPKInputScreen() {
           </View>
         )}
 
-        {/* Show detected weather info */}
         {!weatherLoading && detectedWeather && (
           <View style={styles.detectedWeatherCard}>
             <View style={styles.weatherHeader}>
@@ -374,7 +343,6 @@ export default function NPKInputScreen() {
         </View>
       </View>
 
-      {/* Submit Button */}
       <TouchableOpacity
         style={styles.submitButton}
         onPress={handleSubmit}
@@ -389,7 +357,6 @@ export default function NPKInputScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Info Box */}
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>💡 Tips:</Text>
         <Text style={styles.infoText}>• If you don't have an NPK meter, you can enter estimated values</Text>

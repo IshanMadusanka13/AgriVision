@@ -26,7 +26,6 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    // Validation
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -63,7 +62,6 @@ export default function SignupScreen() {
       }
 
       if (data.success) {
-        // Save user data to AsyncStorage
         await AsyncStorage.setItem('userToken', data.token);
         await AsyncStorage.setItem('userEmail', data.user.email);
         await AsyncStorage.setItem('userName', data.user.name || '');
@@ -98,14 +96,12 @@ export default function SignupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
-            {/* Header */}
             <View style={styles.header}>
               <Text style={styles.logo}>🌱</Text>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Join AgriVision Today</Text>
             </View>
 
-            {/* Signup Form */}
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Name</Text>

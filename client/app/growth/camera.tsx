@@ -18,7 +18,6 @@ export default function CameraScreen() {
   const [loading, setLoading] = useState(false);
   const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
 
-  // Request camera permissions
   const requestCameraPermission = async (): Promise<boolean> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -32,7 +31,6 @@ export default function CameraScreen() {
     return true;
   };
 
-  // Request gallery permissions
   const requestGalleryPermission = async (): Promise<boolean> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -46,7 +44,6 @@ export default function CameraScreen() {
     return true;
   };
 
-  // Take photo with camera
   const takePhoto = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
@@ -69,7 +66,6 @@ export default function CameraScreen() {
     }
   };
 
-  // Select photo from gallery
   const selectPhoto = async () => {
     const hasPermission = await requestGalleryPermission();
     if (!hasPermission) return;
@@ -92,7 +88,6 @@ export default function CameraScreen() {
     }
   };
 
-  // Detect plant from selected image
   const handleDetect = async () => {
     if (!selectedImage) {
       Alert.alert('No Image', 'Please take or select a photo first');
@@ -145,7 +140,6 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Image Preview */}
       <View style={styles.previewContainer}>
         {selectedImage ? (
           <>
@@ -177,7 +171,6 @@ export default function CameraScreen() {
         )}
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         {!selectedImage ? (
           <>
@@ -224,7 +217,6 @@ export default function CameraScreen() {
         )}
       </View>
 
-      {/* Instructions */}
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionTitle}>📋 Tips for Best Results:</Text>
         <Text style={styles.instructionText}>• Clear, focused photo</Text>

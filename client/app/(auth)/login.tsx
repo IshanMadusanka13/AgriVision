@@ -48,14 +48,12 @@ export default function LoginScreen() {
       }
 
       if (data.success) {
-        // Save user data to AsyncStorage
         await AsyncStorage.setItem('userToken', data.token);
         await AsyncStorage.setItem('userEmail', data.user.email);
         await AsyncStorage.setItem('userName', data.user.name || '');
         await AsyncStorage.setItem('userId', data.user.id);
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
 
-        // Check if user is admin and redirect accordingly
         if (data.user.role === 'admin') {
           Alert.alert('Success', 'Welcome Admin!', [
             {
@@ -90,14 +88,12 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.logo}>🌱</Text>
             <Text style={styles.title}>AgriVision</Text>
             <Text style={styles.subtitle}>Welcome Back</Text>
           </View>
 
-          {/* Login Form */}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
