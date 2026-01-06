@@ -22,22 +22,12 @@ RESPONSE_MESSAGES = {
 
 
 class DiseaseService:
-    """Service class for disease detection operations"""
-
     def __init__(self):
         self.supabase = get_supabase_client()
         self._disease_cache = {}
 
+    #Getting the disease details from Database from disease name
     def get_disease_info(self, disease_name: str) -> Optional[Dict]:
-        """
-        Get disease information from database with caching
-        
-        Args:
-            disease_name: Name of the disease
-            
-        Returns:
-            Dict: Disease information or None
-        """
         if disease_name in self._disease_cache:
             return self._disease_cache[disease_name]
         
@@ -59,16 +49,8 @@ class DiseaseService:
             print(f"Error fetching disease info: {e}")
             return None
 
+    #Getting all the disease details from the databse
     def get_all_diseases_info(self, disease_names: List[str]) -> Dict[str, Dict]:
-        """
-        Bulk fetch disease information for multiple diseases
-        
-        Args:
-            disease_names: List of disease names
-            
-        Returns:
-            Dict: Dictionary mapping disease names to their info
-        """
         diseases_info = {}
         
         uncached_diseases = [d for d in disease_names if d not in self._disease_cache]
@@ -95,13 +77,11 @@ class DiseaseService:
         return diseases_info
 
     def _get_color_for_disease(self, disease_info: Optional[Dict]) -> Tuple[int, int, int]:
-        """Get BGR color tuple for disease"""
         if disease_info:
             return (disease_info["color_b"], disease_info["color_g"], disease_info["color_r"])
         return (128, 128, 128)  # Default gray
 
     def _get_severity_score(self, severity_level: str) -> int:
-        """Convert severity level to numeric score for sorting"""
         severity_map = {
             "High": 3,
             "Moderate": 2,
@@ -110,8 +90,8 @@ class DiseaseService:
         }
         return severity_map.get(severity_level, 1)
 
+    #Making the conclusion sentence from the detections
     def _generate_conclusion(self, disease_counts: Dict, all_detections: List[Dict]) -> str:
-        """Generate conclusion based on detections"""
         total = sum(disease_counts.values())
         
         if total == 0:
@@ -134,7 +114,6 @@ class DiseaseService:
             return f"{RESPONSE_MESSAGES['multiple_diseases']}: {summary}. {RESPONSE_MESSAGES['comprehensive_treatment']}."
 
     def _get_most_severe_detection(self, detections: List[Dict]) -> Dict:
-        """Get the most severe disease detection"""
         if not detections:
             return {"disease": "Unknown", "confidence": 0, "severity": "None"}
         
@@ -146,17 +125,8 @@ class DiseaseService:
         
         return sorted_detections[0]
 
+    #uploading image to supabase bucket
     def upload_image_to_storage(self, image: Image.Image, user_id: str) -> Optional[str]:
-        """
-        Upload image to Supabase Storage
-        
-        Args:
-            image: PIL Image
-            user_id: User ID
-            
-        Returns:
-            str: Public URL of uploaded image or None
-        """
         try:
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='PNG')
@@ -177,6 +147,7 @@ class DiseaseService:
             print(f"Error uploading image: {e}")
             return None
 
+    #Adding the detection to database if allowed
     def insert_detection(
         self, 
         user_id: str, 
@@ -188,22 +159,6 @@ class DiseaseService:
         recommendations: Dict,
         status: str
     ) -> Optional[str]:
-        """
-        Insert disease detection record into database
-        
-        Args:
-            user_id: User ID
-            annotated_image_url: URL of annotated image
-            total_detections: Total number of detections
-            detections: List of detection details
-            disease_summary: Summary of diseases detected
-            conclusion: Analysis conclusion
-            recommendations: Treatment recommendations
-            status: Detection status
-            
-        Returns:
-            str: Created detection ID or None
-        """
         try:
             detection_data = {
                 "user_id": user_id,
@@ -227,23 +182,13 @@ class DiseaseService:
             print(f"Error inserting detection: {e}")
             return None
 
+    #disease scanning with model
     def disease_scan(
         self, 
         user_id: str, 
         image: Image.Image, 
         save_to_db: bool = False
     ) -> Dict:
-        """
-        Perform disease detection scan on image
-        
-        Args:
-            user_id: User ID
-            image: PIL Image
-            save_to_db: Whether to save results to database
-            
-        Returns:
-            Dict: Detection results with annotated image
-        """
         results = disease_model.predict(
             source=image,
             imgsz=640,
@@ -380,23 +325,13 @@ class DiseaseService:
         
         return result
 
+    #Get detection history by user
     def get_detections_by_user(
         self, 
         user_id: str, 
         limit: int = 10, 
         offset: int = 0
     ) -> List[Dict]:
-        """
-        Get all disease detections for a user
-        
-        Args:
-            user_id: User ID
-            limit: Number of records to return
-            offset: Offset for pagination
-            
-        Returns:
-            List[Dict]: List of detection records
-        """
         try:
             response = (
                 self.supabase.table("disease_detections")
@@ -411,16 +346,8 @@ class DiseaseService:
             print(f"Error fetching user detections: {e}")
             return []
 
+    #Get detection history by id
     def get_detection_by_id(self, detection_id: str) -> Optional[Dict]:
-        """
-        Get a specific disease detection by ID
-        
-        Args:
-            detection_id: Detection ID
-            
-        Returns:
-            Dict: Detection data formatted for frontend or None
-        """
         try:
             response = (
                 self.supabase.table("disease_detections")
@@ -436,8 +363,6 @@ class DiseaseService:
             
             annotated_image = detection["annotated_image_url"]
             if annotated_image and not annotated_image.startswith("data:"):
-                # If it's a storage URL, keep it as is
-                # Frontend can handle both base64 and URLs
                 pass
             
             return {

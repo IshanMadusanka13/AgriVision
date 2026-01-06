@@ -17,17 +17,6 @@ async def predict(
     user_email: str = Form(None),
     save_to_db: bool = Form(False)
 ):
-    """
-    Predict plant disease from uploaded image
-    
-    Args:
-        file: Uploaded image file
-        user_email: User email (optional, required if save_to_db=True)
-        save_to_db: Whether to save detection to database
-        
-    Returns:
-        JSONResponse: Detection results with annotated image
-    """
     if file.content_type not in SUPPORTED_IMAGE_TYPES:
         raise HTTPException(
             status_code=400, 
@@ -83,17 +72,6 @@ async def get_user_detections(
     limit: int = 10,
     offset: int = 0
 ):
-    """
-    Get all disease detections for a user
-    
-    Args:
-        user_email: User email
-        limit: Number of records to return
-        offset: Offset for pagination
-        
-    Returns:
-        JSONResponse: List of detection records
-    """
     user = supabase_service.get_user_by_email(user_email)
     if not user:
         raise HTTPException(
@@ -125,15 +103,6 @@ async def get_user_detections(
 
 @router.get("/detections/{detection_id}")
 async def get_detection(detection_id: str):
-    """
-    Get a specific disease detection by ID
-    
-    Args:
-        detection_id: Detection ID
-        
-    Returns:
-        JSONResponse: Detection details
-    """
     try:
         detection = disease_service.get_detection_by_id(detection_id)
         

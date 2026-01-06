@@ -149,7 +149,6 @@ export default function DiseaseResultsScreen() {
     router.back();
   };
 
-  // Loading State
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -160,7 +159,6 @@ export default function DiseaseResultsScreen() {
     );
   }
 
-  // Error State
   if (error) {
     return (
       <View style={styles.centerContainer}>
@@ -189,12 +187,10 @@ export default function DiseaseResultsScreen() {
     );
   }
 
-  // Success State
   if (!result) {
     return null;
   }
 
-  // Get most severe detection for summary display
   const mostSevereDetection = result.detections?.reduce((prev, current) => {
     const severityOrder = { High: 3, Moderate: 2, Low: 1, None: 0 };
     const prevScore = severityOrder[prev.severity as keyof typeof severityOrder] || 0;

@@ -78,7 +78,6 @@ export default function DiseaseCameraScreen() {
       return;
     }
     
-    // Navigate to results page with the image URI and save preference
     router.push({
       pathname: "/disease/disease-results",
       params: {
