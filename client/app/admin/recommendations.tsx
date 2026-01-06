@@ -96,7 +96,6 @@ export default function EditRecommendations() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Warnings Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>⚠️ Warnings</Text>
         <Text style={styles.sectionDescription}>
@@ -129,7 +128,6 @@ export default function EditRecommendations() {
         ))}
       </View>
 
-      {/* Tips Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>💡 Tips</Text>
         <Text style={styles.sectionDescription}>
@@ -162,7 +160,6 @@ export default function EditRecommendations() {
         ))}
       </View>
 
-      {/* Save Button */}
       <TouchableOpacity
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}
         onPress={saveRecommendations}

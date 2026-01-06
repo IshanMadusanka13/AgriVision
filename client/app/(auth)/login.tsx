@@ -73,14 +73,12 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.logo}>🌱</Text>
             <Text style={styles.title}>AgriVision</Text>
             <Text style={styles.subtitle}>Welcome Back</Text>
           </View>
 
-          {/* Login Form */}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>

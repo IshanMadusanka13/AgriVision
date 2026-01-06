@@ -77,7 +77,6 @@ export default function SessionDetailsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        {/* Images */}
         {(session.original_image_url) && (
           <View style={styles.imageSection}>
             <Image
@@ -88,7 +87,6 @@ export default function SessionDetailsScreen() {
           </View>
         )}
 
-        {/* Growth Stage */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🌱 Growth Stage</Text>
           <Text style={styles.growthStage}>{session.growth_stage}</Text>
@@ -97,7 +95,6 @@ export default function SessionDetailsScreen() {
           </Text>
         </View>
 
-        {/* Detection Results */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🔍 Detection Results</Text>
           <View style={styles.detectionGrid}>
@@ -119,7 +116,6 @@ export default function SessionDetailsScreen() {
           </View>
         </View>
 
-        {/* NPK Levels */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🧪 NPK Levels</Text>
           <View style={styles.npkGrid}>
@@ -153,7 +149,6 @@ export default function SessionDetailsScreen() {
           </View>
         </View>
 
-        {/* Environmental Data */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🌤️ Environmental Data</Text>
           <View style={styles.envGrid}>
@@ -178,7 +173,6 @@ export default function SessionDetailsScreen() {
           </View>
         </View>
 
-        {/* Location & Date */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>📍 Details</Text>
           {session.location && (
@@ -187,7 +181,6 @@ export default function SessionDetailsScreen() {
           <Text style={styles.infoText}>Date: {formatDate(session.created_at)}</Text>
         </View>
 
-        {/* Fertilizer Recommendations */}
         {recommendations && recommendations.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>📅 Fertilizer Plan</Text>

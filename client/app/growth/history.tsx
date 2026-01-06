@@ -66,7 +66,6 @@ export default function HistoryScreen() {
 
   const fetchHistory = async (email: string) => {
     try {
-      console.log('Fetching history for user:', email);
       const response = await axios.get(`${API_URL}/api/growth/history/${email}`);
       if (response.data.success) {
         setHistory(response.data.sessions);
@@ -116,7 +115,6 @@ export default function HistoryScreen() {
       onPress={() => viewSessionDetails(item.id)}
       activeOpacity={0.7}
     >
-      {/* Image Section */}
       <View style={styles.imageContainer}>
         {item.original_image_url ? (
           <Image
@@ -131,14 +129,12 @@ export default function HistoryScreen() {
         )}
       </View>
 
-      {/* Details Section */}
       <View style={styles.detailsContainer}>
         <Text style={styles.growthStage} numberOfLines={1}>
           {item.growth_stage}
         </Text>
         <Text style={styles.date}>{formatDate(item.created_at)}</Text>
 
-        {/* NPK Values */}
         <View style={styles.npkContainer}>
           <View style={styles.npkBadge}>
             <Text style={styles.npkLabel}>N</Text>
@@ -154,7 +150,6 @@ export default function HistoryScreen() {
           </View>
         </View>
 
-        {/* Detection Counts */}
         <View style={styles.countsContainer}>
           {item.flower_count > 0 && (
             <Text style={styles.countBadge}>🌸 {item.flower_count}</Text>
@@ -167,7 +162,6 @@ export default function HistoryScreen() {
           )}
         </View>
 
-        {/* Location */}
         {item.location && (
           <Text style={styles.location} numberOfLines={1}>
             📍 {item.location}
@@ -175,7 +169,6 @@ export default function HistoryScreen() {
         )}
       </View>
 
-      {/* Arrow Icon */}
       <View style={styles.arrowContainer}>
         <Text style={styles.arrow}>→</Text>
       </View>
@@ -209,7 +202,6 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Analysis History</Text>
         <Text style={styles.headerSubtitle}>
@@ -217,7 +209,6 @@ export default function HistoryScreen() {
         </Text>
       </View>
 
-      {/* History List */}
       <FlatList
         data={history}
         renderItem={renderHistoryItem}

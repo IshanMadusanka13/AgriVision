@@ -44,7 +44,6 @@ export default function ResultScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Detection Results */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>🌱 Detection Results</Text>
         <View style={styles.detectionGrid}>
@@ -52,26 +51,9 @@ export default function ResultScreen() {
             <Text style={styles.detectionLabel}>Growth Stage</Text>
             <Text style={styles.detectionValue}>{detection.growth_stage}</Text>
           </View>
-          {/* <View style={styles.detectionItem}>
-            <Text style={styles.detectionLabel}>Confidence</Text>
-            <Text style={styles.detectionValue}>{detection.confidence.toFixed(1)}%</Text>
-          </View> */}
-          {/* <View style={styles.detectionItem}>
-            <Text style={styles.detectionLabel}>Leaves</Text>
-            <Text style={styles.detectionValue}>{detection.leaves_count}</Text>
-          </View>
-          <View style={styles.detectionItem}>
-            <Text style={styles.detectionLabel}>Flowers</Text>
-            <Text style={styles.detectionValue}>{detection.flowers_count}</Text>
-          </View>
-          <View style={styles.detectionItem}>
-            <Text style={styles.detectionLabel}>Fruits</Text>
-            <Text style={styles.detectionValue}>{detection.fruits_count}</Text>
-          </View> */}
         </View>
       </View>
 
-      {/* NPK Status */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>🧪 NPK Status</Text>
         {Object.entries(recommendation.npk_status).map(([nutrient, status]) => (
@@ -92,7 +74,6 @@ export default function ResultScreen() {
         ))}
       </View>
 
-      {/* Warnings */}
       {recommendation.warnings && recommendation.warnings.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>⚠️ Warnings</Text>
@@ -104,7 +85,6 @@ export default function ResultScreen() {
         </View>
       )}
 
-      {/* Weekly Fertilizer Plan */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>📅 Weekly Fertilizer Plan</Text>
         {recommendation.week_plan.map((day, index) => (
@@ -123,7 +103,6 @@ export default function ResultScreen() {
         ))}
       </View>
 
-      {/* Tips */}
       {recommendation.tips && recommendation.tips.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>💡 Tips</Text>
@@ -135,7 +114,6 @@ export default function ResultScreen() {
         </View>
       )}
 
-      {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)')}>
           <Text style={styles.buttonText}>🏠 Home</Text>
