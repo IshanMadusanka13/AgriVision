@@ -11,8 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { predict_disease } from "@/services/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { get_detection_by_id } from "@/services/api";
 
 interface Detection {
   disease: string;
@@ -32,19 +31,19 @@ interface DiseaseResult {
   created_at?: string;
 }
 
-export default function DiseaseResultsScreen() {
+export default function DiseaseDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { imageUri, saveToDb } = params;
+  const { detectionId } = params;
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DiseaseResult | null>(null);
 
   useEffect(() => {
-    const analyzeImage = async () => {
-      if (!imageUri) {
-        setError("No image provided");
+    const loadDetection = async () => {
+      if (!detectionId) {
+        setError("No detection ID provided");
         setLoading(false);
         return;
       }
@@ -53,45 +52,18 @@ export default function DiseaseResultsScreen() {
         setLoading(true);
         setError(null);
         
-        // Get user email from storage if saving to DB
-        let userEmail = null;
-        const shouldSave = saveToDb === "true";
-        
-        if (shouldSave) {
-          userEmail = await AsyncStorage.getItem("userEmail");
-          if (!userEmail) {
-            Alert.alert(
-              "Authentication Required",
-              "Please log in to save scan history",
-              [{ text: "OK" }]
-            );
-          }
-        }
-        
-        // Call the updated API with new parameters
-        const analysisResult = await predict_disease(
-          imageUri as string,
-          userEmail,
-          shouldSave
-        );
-        
-        if (analysisResult.status === "no_leaf_detected") {
-          setError("No plant leaf detected in the image. Please try again with a clearer image of the affected area.");
-          setLoading(false);
-          return;
-        }
-
-        setResult(analysisResult);
+        const detection = await get_detection_by_id(detectionId as string);
+        setResult(detection);
       } catch (err: any) {
-        console.error("Analysis error:", err);
-        setError(err.message || "Failed to analyze image. Please try again.");
+        console.error("Load detection error:", err);
+        setError(err.message || "Failed to load detection details");
       } finally {
         setLoading(false);
       }
     };
 
-    analyzeImage();
-  }, [imageUri, saveToDb]);
+    loadDetection();
+  }, [detectionId]);
 
   const getSeverityColor = (sev: string) => {
     switch (sev?.toLowerCase()) {
@@ -113,6 +85,18 @@ export default function DiseaseResultsScreen() {
     }
   };
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const handleShare = async () => {
     if (!result) return;
     
@@ -123,7 +107,6 @@ export default function DiseaseResultsScreen() {
             .join("\n• ")
         : "";
       
-      // Format recommendations by disease type
       let recommendationsText = "";
       if (result.recommendations) {
         recommendationsText = Object.entries(result.recommendations)
@@ -135,6 +118,7 @@ export default function DiseaseResultsScreen() {
       
       await Share.share({
         message: `🔬 Disease Detection Results\n\n` +
+                 `Date: ${formatDate(result.created_at)}\n` +
                  `Total Detections: ${result.total_detections}\n` +
                  `Disease Summary:\n• ${diseaseSummary}\n\n` +
                  `Conclusion: ${result.conclusion}\n\n` +
@@ -145,53 +129,37 @@ export default function DiseaseResultsScreen() {
     }
   };
 
-  const handleRetry = () => {
-    router.back();
-  };
-
   // Loading State
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#ef4444" />
-        <Text style={styles.loadingText}>Analyzing image...</Text>
-        <Text style={styles.loadingSubtext}>Detecting all disease instances</Text>
+        <Text style={styles.loadingText}>Loading details...</Text>
       </View>
     );
   }
 
   // Error State
-  if (error) {
+  if (error || !result) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorTitle}>Analysis Failed</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
+        <Text style={styles.errorTitle}>Failed to Load</Text>
+        <Text style={styles.errorMessage}>
+          {error || "Detection not found"}
+        </Text>
         
         <TouchableOpacity 
           style={[styles.button, styles.primaryButton]} 
-          onPress={handleRetry}
+          onPress={() => router.back()}
         >
-          <Text style={styles.buttonIcon}>🔄</Text>
+          <Text style={styles.buttonIcon}>←</Text>
           <Text style={[styles.buttonText, styles.primaryButtonText]}>
-            Try Again
+            Go Back
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => router.push("/")}
-        >
-          <Text style={styles.buttonIcon}>🏠</Text>
-          <Text style={styles.buttonText}>Back to Home</Text>
         </TouchableOpacity>
       </View>
     );
-  }
-
-  // Success State
-  if (!result) {
-    return null;
   }
 
   // Get most severe detection for summary display
@@ -205,25 +173,22 @@ export default function DiseaseResultsScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🔬 Analysis Results</Text>
-        {result.total_detections && result.total_detections > 0 && (
+        <Text style={styles.headerTitle}>🔬 Detection Details</Text>
+        {result.created_at && (
           <Text style={styles.headerSubtitle}>
-            {result.total_detections} detection{result.total_detections > 1 ? 's' : ''} found
+            {formatDate(result.created_at)}
           </Text>
-        )}
-        {saveToDb === "true" && (
-          <View style={styles.savedBadge}>
-            <Text style={styles.savedBadgeText}>✓ Saved to History</Text>
-          </View>
         )}
       </View>
 
       <View style={styles.imageContainer}>
-        <Image 
-          source={{ uri: result.annotated_image || imageUri as string }} 
-          style={styles.image}
-          resizeMode="contain"
-        />
+        {result.annotated_image && (
+          <Image 
+            source={{ uri: result.annotated_image }} 
+            style={styles.image}
+            resizeMode="contain"
+          />
+        )}
       </View>
 
       {result.conclusion && (
@@ -354,8 +319,8 @@ export default function DiseaseResultsScreen() {
           style={styles.button} 
           onPress={() => router.back()}
         >
-          <Text style={styles.buttonIcon}>🔄</Text>
-          <Text style={styles.buttonText}>Analyze Another</Text>
+          <Text style={styles.buttonIcon}>←</Text>
+          <Text style={styles.buttonText}>Back to History</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -384,12 +349,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1f2937",
     marginTop: 16,
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 8,
-    textAlign: "center",
   },
   errorIcon: {
     fontSize: 64,
@@ -426,19 +385,6 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     textAlign: "center",
     marginTop: 4,
-  },
-  savedBadge: {
-    backgroundColor: "#d1fae5",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 12,
-    alignSelf: "center",
-  },
-  savedBadgeText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#065f46",
   },
   imageContainer: {
     margin: 16,

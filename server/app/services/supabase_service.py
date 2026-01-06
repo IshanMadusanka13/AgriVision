@@ -546,3 +546,227 @@ class SupabaseService:
             "warnings": metadata.get("warnings", []) if metadata else [],
             "tips": metadata.get("tips", []) if metadata else [],
         }
+
+
+
+# Add these methods to the existing SupabaseService class in supabase_service.py
+
+# ==================== Disease Detection Operations ====================
+
+def get_disease_info_by_name(self, disease_name: str) -> Optional[Dict]:
+    """
+    Get disease information by name
+    
+    Args:
+        disease_name: Name of the disease
+        
+    Returns:
+        Dict: Disease information or None
+    """
+    response = (
+        self.client.table("disease_info")
+        .select("*")
+        .eq("disease_name", disease_name)
+        .execute()
+    )
+    return response.data[0] if response.data else None
+
+
+def get_multiple_diseases_info(self, disease_names: List[str]) -> List[Dict]:
+    """
+    Get information for multiple diseases
+    
+    Args:
+        disease_names: List of disease names
+        
+    Returns:
+        List[Dict]: List of disease information
+    """
+    response = (
+        self.client.table("disease_info")
+        .select("*")
+        .in_("disease_name", disease_names)
+        .execute()
+    )
+    return response.data
+
+
+def create_disease_detection(
+    self,
+    user_id: str,
+    annotated_image_url: Optional[str],
+    total_detections: int,
+    detections: List[Dict],
+    disease_summary: Dict,
+    conclusion: str,
+    recommendations: Dict,
+    status: str
+) -> Dict:
+    """
+    Create a new disease detection record
+    
+    Args:
+        user_id: User ID
+        annotated_image_url: URL of annotated image
+        total_detections: Total number of detections
+        detections: List of detection details
+        disease_summary: Summary of diseases detected
+        conclusion: Analysis conclusion
+        recommendations: Treatment recommendations
+        status: Detection status
+        
+    Returns:
+        Dict: Created detection record
+    """
+    detection_data = {
+        "user_id": user_id,
+        "annotated_image_url": annotated_image_url,
+        "total_detections": total_detections,
+        "detections": detections,
+        "disease_summary": disease_summary,
+        "conclusion": conclusion,
+        "recommendations": recommendations,
+        "status": status
+    }
+    
+    response = (
+        self.client.table("disease_detections")
+        .insert(detection_data)
+        .execute()
+    )
+    return response.data[0] if response.data else None
+
+
+def get_detection_by_id(self, detection_id: str) -> Optional[Dict]:
+    """
+    Get a disease detection by ID
+    
+    Args:
+        detection_id: Detection ID
+        
+    Returns:
+        Dict: Detection data or None
+    """
+    response = (
+        self.client.table("disease_detections")
+        .select("*")
+        .eq("id", detection_id)
+        .execute()
+    )
+    return response.data[0] if response.data else None
+
+
+def get_user_detections(
+    self, 
+    user_id: str, 
+    limit: int = 10, 
+    offset: int = 0
+) -> List[Dict]:
+    """
+    Get all disease detections for a user
+    
+    Args:
+        user_id: User ID
+        limit: Number of records to return
+        offset: Offset for pagination
+        
+    Returns:
+        List[Dict]: List of detection records
+    """
+    response = (
+        self.client.table("disease_detections")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    return response.data
+
+
+def get_detection_statistics(self, user_id: str) -> Dict:
+    """
+    Get statistics about user's disease detections
+    
+    Args:
+        user_id: User ID
+        
+    Returns:
+        Dict: Statistics including total scans, diseases found, etc.
+    """
+    # Get all user detections
+    response = (
+        self.client.table("disease_detections")
+        .select("total_detections, disease_summary, status")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    
+    if not response.data:
+        return {
+            "total_scans": 0,
+            "total_detections": 0,
+            "diseases_found": {},
+            "healthy_scans": 0
+        }
+    
+    total_scans = len(response.data)
+    total_detections = sum(d["total_detections"] for d in response.data)
+    
+    # Aggregate disease counts
+    all_diseases = {}
+    healthy_scans = 0
+    
+    for detection in response.data:
+        disease_summary = detection.get("disease_summary", {})
+        for disease, count in disease_summary.items():
+            if "healthy" in disease.lower():
+                healthy_scans += 1
+            all_diseases[disease] = all_diseases.get(disease, 0) + count
+    
+    return {
+        "total_scans": total_scans,
+        "total_detections": total_detections,
+        "diseases_found": all_diseases,
+        "healthy_scans": healthy_scans
+    }
+
+
+def upload_detection_image(
+    self, 
+    image_bytes: bytes, 
+    user_id: str,
+    content_type: str = "image/png"
+) -> str:
+    """
+    Upload disease detection image to Supabase Storage
+    
+    Args:
+        image_bytes: Image data as bytes
+        user_id: User ID
+        content_type: Image content type
+        
+    Returns:
+        str: Public URL of uploaded image
+    """
+    try:
+        from uuid import uuid4
+        
+        # Generate unique filename
+        file_extension = "png" if "png" in content_type else "jpg"
+        file_name = f"{user_id}/detections/{uuid4()}.{file_extension}"
+        
+        # Upload to Supabase Storage
+        response = self.client.storage.from_("plant-images").upload(
+            file_name, 
+            image_bytes,
+            {"content-type": content_type}
+        )
+        
+        # Get public URL
+        public_url = self.client.storage.from_("plant-images").get_public_url(file_name)
+        
+        return public_url
+    except Exception as e:
+        print(f"Error uploading detection image: {e}")
+        return None

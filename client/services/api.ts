@@ -13,6 +13,24 @@ export interface DetectionResult {
   fruits_count: number;
 }
 
+interface Detection {
+  disease: string;
+  confidence: number;
+  bbox: number[];
+  severity: string;
+}
+
+interface DiseaseResult {
+  status: string;
+  annotated_image?: string;
+  total_detections: number;
+  detections: Detection[];
+  disease_summary: Record<string, number>;
+  conclusion: string;
+  recommendations: Record<string, string[]>;
+  created_at?: string;
+}
+
 export interface NPKStatus {
   level: 'optimal' | 'low' | 'high';
   current: number;
@@ -213,32 +231,85 @@ export const login = async (
 //-------------------------------------------------
 //-------------------Disease-----------------------
 //-------------------------------------------------
-export const predict_disease = async (imageUri: string): Promise<any> => {
+export const predict_disease = async (
+  imageUri: string,
+  userEmail: string | null = null,
+  saveToDb: boolean = false
+): Promise<DiseaseResult> => {
   try {
-    console.log("Uploading image:", imageUri);
+    // Create form data
     const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'upload.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      formData.append('file', blob, filename);
+    
+    // Add image file
+    const imageFile = {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "plant_image.jpg",
+    } as any;
+    
+    formData.append("file", imageFile);
+    
+    // Add optional parameters
+    if (saveToDb && userEmail) {
+      formData.append("user_email", userEmail);
+      formData.append("save_to_db", "true");
     } else {
-      formData.append('file', createFileFromUri(imageUri));
+      formData.append("save_to_db", "false");
     }
 
-    const response = await api.post('/api/disease/predict', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    // Make API request
+    const response = await api.post<DiseaseResult>("api/disease/predict", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
 
     return response.data;
   } catch (error: any) {
     console.error("Disease prediction error:", error);
-    throw error;
+    
+    if (error.response) {
+      // Server responded with error status
+      const errorMessage = error.response.data?.detail || "Failed to analyze image";
+      throw new Error(errorMessage);
+    } else if (error.request) {
+      // Request made but no response
+      throw new Error("No response from server. Please check your connection.");
+    } else {
+      // Something else went wrong
+      throw new Error(error.message || "Failed to analyze image");
+    }
   }
 };
+
+export const get_user_detections = async (
+  userEmail: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<{ status: string; total: number; detections: any[] }> => {
+  try {
+    const response = await api.get(`api/disease/detections/user/${userEmail}`, {
+      params: { limit, offset },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Get detections error:", error);
+    throw new Error(error.response?.data?.detail || "Failed to fetch detection history");
+  }
+};
+
+export const get_detection_by_id = async (
+  detectionId: string
+): Promise<DiseaseResult> => {
+  try {
+    const response = await api.get<DiseaseResult>(`api/disease/detections/${detectionId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Get detection error:", error);
+    throw new Error(error.response?.data?.detail || "Failed to fetch detection details");
+  }
+};
+
 
 //-------------------------------------------------
 //-------------------Growth------------------------

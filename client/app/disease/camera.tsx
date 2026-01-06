@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -13,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 export default function DiseaseCameraScreen() {
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [saveToHistory, setSaveToHistory] = useState(false);
 
   const requestCameraPermission = async (): Promise<boolean> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -76,11 +78,12 @@ export default function DiseaseCameraScreen() {
       return;
     }
     
-    // Navigate to results page with the image URI
+    // Navigate to results page with the image URI and save preference
     router.push({
       pathname: "/disease/disease-results",
       params: {
         imageUri: selectedImage,
+        saveToDb: saveToHistory.toString(),
       },
     });
   };
@@ -96,6 +99,24 @@ export default function DiseaseCameraScreen() {
             <Text style={styles.placeholderText}>Take or select a photo of affected plant area</Text>
           </View>
         )}
+      </View>
+
+      {/* Save to History Toggle */}
+      <View style={styles.toggleContainer}>
+        <View style={styles.toggleContent}>
+          <View style={styles.toggleTextContainer}>
+            <Text style={styles.toggleTitle}>💾 Save to History</Text>
+            <Text style={styles.toggleDescription}>
+              Save this scan to your account history
+            </Text>
+          </View>
+          <Switch
+            value={saveToHistory}
+            onValueChange={setSaveToHistory}
+            trackColor={{ false: "#d1d5db", true: "#86efac" }}
+            thumbColor={saveToHistory ? "#10b981" : "#f3f4f6"}
+          />
+        </View>
       </View>
 
       <View style={styles.buttonContainer}>
@@ -118,7 +139,9 @@ export default function DiseaseCameraScreen() {
               onPress={handleAnalyze}
             >
               <Text style={styles.buttonIcon}>🔍</Text>
-              <Text style={[styles.buttonText, styles.primaryButtonText]}>Analyze</Text>
+              <Text style={[styles.buttonText, styles.primaryButtonText]}>
+                Analyze
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -137,6 +160,7 @@ export default function DiseaseCameraScreen() {
         <Text style={styles.instructionText}>• Take a clear, focused photo</Text>
         <Text style={styles.instructionText}>• Use good natural lighting</Text>
         <Text style={styles.instructionText}>• Include affected area (leaves/stems)</Text>
+        <Text style={styles.instructionText}>• Avoid shadows and reflections</Text>
       </View>
     </View>
   );
@@ -157,9 +181,48 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   image: { width: "100%", height: "100%", resizeMode: "contain" },
-  placeholder: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
+  placeholder: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    padding: 32 
+  },
   placeholderIcon: { fontSize: 64, marginBottom: 16 },
-  placeholderText: { fontSize: 16, color: "#6b7280", textAlign: "center", lineHeight: 24 },
+  placeholderText: { 
+    fontSize: 16, 
+    color: "#6b7280", 
+    textAlign: "center", 
+    lineHeight: 24 
+  },
+  toggleContainer: {
+    margin: 16,
+    marginTop: 0,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    padding: 16,
+  },
+  toggleContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  toggleTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: 13,
+    color: "#6b7280",
+    lineHeight: 18,
+  },
   buttonContainer: { padding: 16, gap: 12 },
   button: {
     flexDirection: "row",
@@ -176,9 +239,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  primaryButton: { backgroundColor: "#ef4444", borderColor: "#ef4444" },
+  primaryButton: { 
+    backgroundColor: "#ef4444", 
+    borderColor: "#ef4444" 
+  },
   buttonIcon: { fontSize: 24, marginRight: 8 },
-  buttonText: { fontSize: 16, fontWeight: "600", color: "#374151" },
+  buttonText: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#374151" 
+  },
   primaryButtonText: { color: "#fff" },
   instructionsContainer: { 
     backgroundColor: "#fff", 
@@ -188,6 +258,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: "#e5e7eb" 
   },
-  instructionTitle: { fontSize: 16, fontWeight: "600", color: "#1f2937", marginBottom: 12 },
-  instructionText: { fontSize: 14, color: "#6b7280", marginBottom: 6 },
+  instructionTitle: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#1f2937", 
+    marginBottom: 12 
+  },
+  instructionText: { 
+    fontSize: 14, 
+    color: "#6b7280", 
+    marginBottom: 6 
+  },
 });
