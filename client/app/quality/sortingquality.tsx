@@ -33,7 +33,7 @@ export default function SortingQuality() {
   if (!data || data.total_peppers === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={{ fontSize: 18 }}>වර්ගීකරණ දත්ත නොමැත.</Text>
+        <Text style={{ fontSize: 18 }}>No classification data available.</Text>
         <Image
           source={{
             uri: "https://upload.wikimedia.org/wikipedia/commons/1/12/Scotch_Bonnet_Chili.jpg",
@@ -73,9 +73,46 @@ export default function SortingQuality() {
     ]).start();
   }, []);
 
+  // Pie chart calculations
+  const radius = 100;
+  const center = radius;
+  const total = categoryCounts.reduce((sum, c) => sum + c.count, 0);
+
+  const piePaths: { pathData: string; color: string; category: string; percentage: number; midAngle: number }[] = [];
+  let startAngle = 0;
+
+  categoryCounts.forEach((c) => {
+    const sliceAngle = (c.count / total) * 2 * Math.PI;
+    const endAngle = startAngle + sliceAngle;
+
+    const x1 = center + radius * Math.cos(startAngle);
+    const y1 = center + radius * Math.sin(startAngle);
+    const x2 = center + radius * Math.cos(endAngle);
+    const y2 = center + radius * Math.sin(endAngle);
+    const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
+
+    const pathData = `M${center},${center} L${x1},${y1} A${radius},${radius} 0 ${largeArcFlag} 1 ${x2},${y2} Z`;
+    const midAngle = startAngle + sliceAngle / 2;
+
+    piePaths.push({
+      pathData,
+      color: gradeColors[c.category],
+      category: c.category,
+      percentage: c.percentage,
+      midAngle,
+    });
+
+    startAngle = endAngle;
+  });
+  
+const router = useRouter();
+  const handleAnalysis = () => {
+    router.push("/quality/batchanalysis");
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>වර්ගීකරණ ප්‍රතිඵල</Text>
+      <Text style={styles.title}>🧺 Visual Sorting</Text>
 
       {/* Info Cards */}
       <View style={styles.cardsContainer}>
@@ -144,8 +181,8 @@ export default function SortingQuality() {
       {/* Sinhala description */}
       <View style={styles.descriptionBox}>
         <Text style={styles.descriptionText}>
-          සලකුණු කර ඇති හැඳුනුම්කරණ කොටස් (Bounding boxes) මගින් මෙම රූපයේ
-          Scotch Bonnet වර්ග හඳුනාගත හැක. වර්ගය අනුව වර්ණය වෙනස් වේ (Grade A-D – Category Quality).
+         The Scotch Bonnet varieties can be identified in this image by the marked Bounding boxes and numeric labels . The color varies depending on
+          the variety (Grade A-D – Category Quality).
         </Text>
       </View>
 
@@ -169,7 +206,7 @@ export default function SortingQuality() {
                 {c.count} ({c.percentage}%)
               </Text>
               <Text style={styles.binDescription}>
-                මෙම කාණ්ඩයේ සියළු මිරිස් ප්‍රතිශතය
+               All Scotch bonnet percentages in this category
               </Text>
               <View style={styles.pepperList}>
                 {peppers.map((p: any) => (
@@ -238,22 +275,22 @@ export default function SortingQuality() {
           </Svg>
         </View>
       </View>
-
       {/* Summary */}
       <View style={styles.summaryBox}>
-        <Text style={styles.summaryTitle}>සාරාංශය / Summary</Text>
+        <Text style={styles.summaryTitle}>Summary</Text>
         <Text style={styles.summaryText}>Total Scotch Bonnets: {data.total_peppers}</Text>
         {categoryCounts.map((c) => {
           let desc = "";
           if (c.category === "Category A") {
-            desc = "ඉතා හොඳ ගුණාත්මක තත්වයේ Scotch Bonnet කාණ්ඩයයි. කොළ පැහැයෙන් යුක්තයි.";
-          } else if (c.category === "Category B") {
-            desc = "හොඳ තත්ත්වයේ කොළ සහ කහ මුසු Scotch Bonnet කාණ්ඩයයි.";
-          } else if (c.category === "Category C") {
-            desc = "තැබිලි සහ රතු කාණ්ඩයේ Scotch Bonnet වර්ගයයි. Processing සඳහා යෝග්‍යයි.";
-          } else if (c.category === "Category D") {
-            desc = "වෙළඳපොල භාවිතයට ගත නොහැකි කාණ්ඩයයි. නමුත් වෙනත් අමුද්‍රව්‍ය සැකසීමට ගත හැකිය.";
-          }
+  desc = "This Scotch Bonnet category is in excellent quality condition. It is green in color.";
+} else if (c.category === "Category B") {
+  desc = "This Scotch Bonnet category is in good condition with a mix of yellow color.";
+} else if (c.category === "Category C") {
+  desc = "This Scotch Bonnet variety belongs to the orange and red category. It is suitable for processing.";
+} else if (c.category === "Category D") {
+  desc = "This category is not suitable for direct market use, but it can be used for processing into other products.";
+}
+
           return (
             <View key={c.category} style={{ marginBottom: 4 }}>
               <Text style={styles.summaryText}>
