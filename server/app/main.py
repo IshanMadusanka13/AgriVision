@@ -7,9 +7,9 @@ from routes.growth_router import router as growth_router
 from routes.quality_router import router as quality_router
 from routes.auth_router import router as auth_router
 from routes.admin_router import router as admin_router
-# from routes.planting.field_management_router import router as field_management_router
-# from routes.planting.layout_generator_router import router as layout_generator_router
-# from routes.planting.planting_router import router as planting_router
+from routes.planting.field_management_router import router as field_management_router
+from routes.planting.layout_generator_router import router as layout_generator_router
+from routes.planting.planting_router import router as planting_router
 
 app = FastAPI(title="AgriVision API", version="1.0.0")
 app.add_middleware(
@@ -39,6 +39,6 @@ app.include_router(upload_router, prefix="/api/disease", tags=["Disease"])
 app.include_router(growth_router, prefix="/api/growth", tags=["Growth"])
 app.include_router(quality_router, prefix="/api/quality", tags=["Quality"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
-# app.include_router(planting_router, prefix="/api/planting", tags=["Precision Planting"])
-# app.include_router(field_management_router, prefix="/api/planting", tags=["Field Management"])
-# app.include_router(layout_generator_router, prefix="/api/planting", tags=["Layout Generation"])
+app.include_router(planting_router, prefix="/api/planting", tags=["Precision Planting"])
+app.include_router(field_management_router, prefix="/api/planting", tags=["Field Management"])
+app.include_router(layout_generator_router, prefix="/api/planting", tags=["Layout Generation"])

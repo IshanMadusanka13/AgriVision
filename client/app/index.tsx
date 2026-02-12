@@ -93,10 +93,10 @@ export default function HomeScreen() {
       color: '#105a0cff',
     },
     {
-      title: 'Coming Soon',
+      title: 'Planting',
       description: 'Feature in development',
-      icon: '🚧',
-      route: '/',
+      icon: '📈',
+      route: '/planting/planting',
       color: '#6b7280',
     },
     {
