@@ -16,32 +16,6 @@ export default function ResultScreen() {
   const result: FullAnalysisResult = JSON.parse(params.resultData as string);
   const { detection, recommendation } = result;
 
-  const getNPKStatusColor = (level: string): string => {
-    switch (level) {
-      case 'optimal':
-        return '#10b981';
-      case 'low':
-        return '#f59e0b';
-      case 'high':
-        return '#ef4444';
-      default:
-        return '#6b7280';
-    }
-  };
-
-  const getNPKStatusIcon = (level: string): string => {
-    switch (level) {
-      case 'optimal':
-        return '✅';
-      case 'low':
-        return '⚠️';
-      case 'high':
-        return '🔴';
-      default:
-        return '⚪';
-    }
-  };
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
@@ -51,27 +25,31 @@ export default function ResultScreen() {
             <Text style={styles.detectionLabel}>Growth Stage</Text>
             <Text style={styles.detectionValue}>{detection.growth_stage}</Text>
           </View>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>🧪 NPK Status</Text>
-        {Object.entries(recommendation.npk_status).map(([nutrient, status]) => (
-          <View key={nutrient} style={styles.npkItem}>
-            <View style={styles.npkHeader}>
-              <Text style={styles.npkTitle}>
-                {getNPKStatusIcon(status.level)} {nutrient}
-              </Text>
-              <Text style={[styles.npkLevel, { color: getNPKStatusColor(status.level) }]}>
-                {status.level.toUpperCase()}
-              </Text>
+          {detection.plant_id && (
+            <View style={styles.detectionItem}>
+              <Text style={styles.detectionLabel}>Plant ID</Text>
+              <Text style={styles.detectionValue}>#{detection.plant_id}</Text>
             </View>
-            <View style={styles.npkDetails}>
-              <Text style={styles.npkText}>Current: {status.current} mg/kg</Text>
-              <Text style={styles.npkText}>Optimal: {status.optimal} mg/kg</Text>
+          )}
+          {detection.plant_height_cm && (
+            <View style={styles.detectionItem}>
+              <Text style={styles.detectionLabel}>Plant Height</Text>
+              <Text style={styles.detectionValue}>{detection.plant_height_cm} cm</Text>
             </View>
+          )}
+          <View style={styles.detectionItem}>
+            <Text style={styles.detectionLabel}>Leaves</Text>
+            <Text style={styles.detectionValue}>{detection.leaves_count}</Text>
           </View>
-        ))}
+          <View style={styles.detectionItem}>
+            <Text style={styles.detectionLabel}>Flowers</Text>
+            <Text style={styles.detectionValue}>{detection.flowers_count}</Text>
+          </View>
+          <View style={styles.detectionItem}>
+            <Text style={styles.detectionLabel}>Fruits</Text>
+            <Text style={styles.detectionValue}>{detection.fruits_count}</Text>
+          </View>
+        </View>
       </View>
 
       {recommendation.warnings && recommendation.warnings.length > 0 && (
@@ -176,36 +154,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#10b981',
-  },
-  npkItem: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#10b981',
-  },
-  npkHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  npkTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  npkLevel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  npkDetails: {
-    gap: 4,
-  },
-  npkText: {
-    fontSize: 14,
-    color: '#6b7280',
   },
   warningItem: {
     backgroundColor: '#fef3c7',

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File
 from typing import List
-from services.quality_service import grade_images
+from app.services.quality_service import grade_images
 
 router = APIRouter()
 

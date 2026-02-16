@@ -102,10 +102,10 @@ export default function CameraScreen() {
       const buttons = result.growth_stage !== 'Not a Scotch Bonnet plant'
         ? [
             {
-              text: 'Next: NPK Input',
+              text: 'Next: Environmental Data',
               onPress: () =>
                 router.push({
-                  pathname: '/growth/npk-input',
+                  pathname: '/growth/environmental-input',
                   params: {
                     imageUri: selectedImage,
                     growth_stage: result.growth_stage,
@@ -113,6 +113,8 @@ export default function CameraScreen() {
                     leaves_count: result.leaves_count.toString(),
                     flowers_count: result.flowers_count.toString(),
                     fruits_count: result.fruits_count.toString(),
+                    plant_height_cm: result.plant_height_cm?.toString() || '',
+                    plant_id: result.plant_id?.toString() || '',
                   },
                 }),
             },

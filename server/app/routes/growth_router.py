@@ -20,33 +20,29 @@ def _patched_torch_load(*args, **kwargs):
 torch.load = _patched_torch_load
 
 try:
-    from services.weather_service import weather_service
+    from app.services.weather_service import weather_service
 except ImportError:
-    from services.weather_service import weather_service
+    from app.services.weather_service import weather_service
 
 try:
-    from services.fertilizer_service import (
-        NPKInput,
-        FertilizerRecommendation,
+    from app.services.growth_recommendations_service import (
+        GrowthRecommendation,
         DetectionCounts,
         determine_growth_stage,
-        analyze_npk_levels,
-        generate_fertilizer_plan
+        generate_growth_recommendations
     )
 except ImportError:
-    from services.fertilizer_service import (
-        NPKInput,
-        FertilizerRecommendation,
+    from app.services.growth_recommendations_service import (
+        GrowthRecommendation,
         DetectionCounts,
         determine_growth_stage,
-        analyze_npk_levels,
-        generate_fertilizer_plan
+        generate_growth_recommendations
     )
 
 try:
-    from services.supabase_service import SupabaseService
+    from app.services.supabase_service import SupabaseService
 except ImportError:
-    from services.supabase_service import SupabaseService
+    from app.services.supabase_service import SupabaseService
 
 supabase_service = SupabaseService()
 
@@ -59,15 +55,14 @@ if not os.path.isabs(model_path):
 model = YOLO(model_path)
 
 
-class FertilizerRequest(BaseModel):
+class GrowthRequest(BaseModel):
     growth_stage: str
-    npk_levels: NPKInput
-    latitude: Optional[float] = None  
-    longitude: Optional[float] = None  
-    weather_condition: Optional[str] = None  
-    temperature: Optional[float] = None  
-    ph: Optional[float] = None  
-    humidity: Optional[float] = None  
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    weather_condition: Optional[str] = None
+    temperature: Optional[float] = None
+    ph: Optional[float] = None
+    humidity: Optional[float] = None
 
 
 class DetectionResult(BaseModel):
@@ -76,17 +71,19 @@ class DetectionResult(BaseModel):
     flowers_count: int
     fruits_count: int
     confidence: float
+    plant_height_cm: Optional[float] = None
+    plant_id: Optional[int] = None
 
 
 @router.get("/")
 async def root():
     return {
         "message": "Scotch Bonnet Plant Monitor API",
-        "version": "2.0",
+        "version": "3.0",
         "endpoints": {
             "detect": "/detect - POST image for plant detection",
-            "recommend": "/recommend - POST for fertilizer recommendation",
-            "full_analysis": "/full_analysis - POST image + NPK data for complete analysis",
+            "recommend": "/recommend - POST for growth recommendations",
+            "full_analysis": "/full_analysis - POST image for complete analysis with environmental data",
             "weather": "/weather - GET current weather data",
             "forecast": "/forecast - GET weather forecast"
         }
@@ -145,20 +142,66 @@ async def detect_plant(file: UploadFile = File(...)):
         }
         growth_stage = stage_map.get(growth_stage_key, "Unknown Stage")
 
+        # Try to detect ArUco marker and measure plant height
+        plant_height_cm = None
+        plant_id = None
+
+        try:
+            from app.services.plant_tracking_service import PlantTrackingService
+            tracking_service = PlantTrackingService(
+                yolo_model_path=None,  # We already have detections
+                aruco_marker_size_cm=5.0
+            )
+
+            # Detect ArUco marker
+            marker_info = tracking_service.detect_aruco_marker(img)
+
+            if marker_info:
+                plant_id = marker_info['plant_id']
+
+                # Calculate plant height if we have leaf detections
+                if counts.leaf > 0:
+                    # Get the highest leaf point from YOLO detections
+                    results = model.predict(img, conf=0.5)
+                    highest_y = None
+
+                    for result in results:
+                        for box in result.boxes:
+                            cls_id = int(box.cls[0])
+                            label = model.names[cls_id].lower()
+
+                            if label == 'leaf':
+                                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                                top_y = min(y1, y2)
+
+                                if highest_y is None or top_y < highest_y:
+                                    highest_y = top_y
+
+                    if highest_y is not None:
+                        ground_level_y = marker_info['bottom_center'][1]
+                        pixel_ratio = marker_info['pixel_size'] / 5.0
+                        plant_height_cm = (ground_level_y - highest_y) / pixel_ratio
+                        plant_height_cm = round(plant_height_cm, 1)
+        except Exception as e:
+            # ArUco detection failed, but continue with regular detection
+            print(f"ArUco detection error (continuing without height): {e}")
+
         return DetectionResult(
             growth_stage=growth_stage,
             leaves_count=counts.leaf,
             flowers_count=counts.flower,
             fruits_count=counts.fruit,
-            confidence=round(confidence / 100, 4)
+            confidence=round(confidence / 100, 4),
+            plant_height_cm=plant_height_cm,
+            plant_id=plant_id
         )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
 
-@router.post("/recommend", response_model=FertilizerRecommendation)
-async def recommend_fertilizer(request: FertilizerRequest):
+@router.post("/recommend", response_model=GrowthRecommendation)
+async def recommend_growth(request: GrowthRequest):
     try:
         weather_condition = request.weather_condition
         temperature = request.temperature
@@ -191,11 +234,8 @@ async def recommend_fertilizer(request: FertilizerRequest):
         if weather_condition is None:
             weather_condition = "sunny"
 
-        npk_status = analyze_npk_levels(request.npk_levels, request.growth_stage)
-
-        recommendation = generate_fertilizer_plan(
+        recommendation = generate_growth_recommendations(
             request.growth_stage,
-            npk_status,
             weather_condition,
             temperature,
             request.ph,
@@ -212,9 +252,6 @@ async def recommend_fertilizer(request: FertilizerRequest):
 @router.post("/full_analysis")
 async def full_analysis(
     file: UploadFile = File(...),
-    nitrogen: float = Form(...),
-    phosphorus: float = Form(...),
-    potassium: float = Form(...),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
     weather: Optional[str] = Form(None),
@@ -225,7 +262,7 @@ async def full_analysis(
     location_name: Optional[str] = Form(None),
     save_to_db: bool = Form(True)
 ):
-    
+
     try:
         import tempfile
         import shutil
@@ -276,15 +313,8 @@ async def full_analysis(
             confidence=round(confidence / 100, 4)
         )
 
-        npk_input = NPKInput(
-            nitrogen=nitrogen,
-            phosphorus=phosphorus,
-            potassium=potassium
-        )
-
-        fertilizer_request = FertilizerRequest(
+        growth_request = GrowthRequest(
             growth_stage=detection.growth_stage,
-            npk_levels=npk_input,
             latitude=latitude,
             longitude=longitude,
             weather_condition=weather,
@@ -293,7 +323,7 @@ async def full_analysis(
             humidity=humidity
         )
 
-        recommendation = await recommend_fertilizer(fertilizer_request)
+        recommendation = await recommend_growth(growth_request)
 
         session_id = None
         if save_to_db:
@@ -319,12 +349,6 @@ async def full_analysis(
                             weather_forecast_data = weather_service.get_weather_forecast(latitude, longitude, days=7)
                         except Exception as e:
                             print(f"Weather fetch error (continuing without weather): {e}")
-
-                    npk_data = {
-                        "nitrogen": nitrogen,
-                        "phosphorus": phosphorus,
-                        "potassium": potassium
-                    }
 
                     environmental_data = {
                         "ph": ph,
@@ -377,12 +401,10 @@ async def full_analysis(
                         "flower_count": detection.flowers_count,
                         "fruit_count": detection.fruits_count,
                         "leaf_count": detection.leaves_count,
-                        "ripening_count": 0  
+                        "ripening_count": 0
                     }
 
-                    npk_status_dict = recommendation.npk_status
-
-                    fertilizer_rec_dict = {
+                    growth_rec_dict = {
                         "week_plan": recommendation.week_plan,
                         "warnings": recommendation.warnings,
                         "tips": recommendation.tips
@@ -390,13 +412,13 @@ async def full_analysis(
 
                     session_id = supabase_service.save_complete_analysis(
                         user_id=user_id,
-                        npk_data=npk_data,
+                        npk_data=None,  # No NPK data anymore
                         environmental_data=environmental_data,
                         image_urls=image_urls,
                         growth_stage_data=growth_stage_data,
                         weather_forecast=weather_forecast_data,
-                        npk_status=npk_status_dict,
-                        fertilizer_recommendation=fertilizer_rec_dict
+                        npk_status=None,  # No NPK status anymore
+                        fertilizer_recommendation=growth_rec_dict
                     )
 
                     print(f"✓ Analysis saved to database. Session ID: {session_id}")
@@ -431,7 +453,7 @@ async def full_analysis(
 
 @router.get("/history/{user_email}")
 async def get_user_history(user_email: str):
-    
+
     try:
         user = supabase_service.get_user_by_email(user_email)
         if not user:
@@ -456,7 +478,7 @@ async def get_user_history(user_email: str):
 
 @router.get("/session/{session_id}")
 async def get_session_details(session_id: str):
-    
+
     try:
         analysis = supabase_service.get_complete_analysis(session_id)
 

@@ -15,7 +15,7 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFullAnalysis, getCurrentWeather, type WeatherData, type Location as LocationType } from '@/services/api';
 
-export default function NPKInputScreen() {
+export default function EnvironmentalInputScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -26,11 +26,10 @@ export default function NPKInputScreen() {
     leaves_count: parseInt(params.leaves_count as string),
     flowers_count: parseInt(params.flowers_count as string),
     fruits_count: parseInt(params.fruits_count as string),
+    plant_height_cm: params.plant_height_cm ? parseFloat(params.plant_height_cm as string) : null,
+    plant_id: params.plant_id ? parseInt(params.plant_id as string) : null,
   };
 
-  const [nitrogen, setNitrogen] = useState('70');
-  const [phosphorus, setPhosphorus] = useState('90');
-  const [potassium, setPotassium] = useState('170');
   const [ph, setPh] = useState('6.5');
   const [weather, setWeather] = useState('sunny');
   const [temperature, setTemperature] = useState('28');
@@ -113,18 +112,15 @@ export default function NPKInputScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!nitrogen || !phosphorus || !potassium || !ph) {
-      Alert.alert('Input Required', 'Please enter all NPK and pH values');
+    if (!ph) {
+      Alert.alert('Input Required', 'Please enter soil pH value');
       return;
     }
 
-    const n = parseFloat(nitrogen);
-    const p = parseFloat(phosphorus);
-    const k = parseFloat(potassium);
     const phValue = parseFloat(ph);
 
-    if (isNaN(n) || isNaN(p) || isNaN(k) || isNaN(phValue)) {
-      Alert.alert('Invalid Input', 'Please enter valid numbers');
+    if (isNaN(phValue)) {
+      Alert.alert('Invalid Input', 'Please enter a valid pH number');
       return;
     }
 
@@ -141,14 +137,13 @@ export default function NPKInputScreen() {
 
       const result = await getFullAnalysis(
         imageUri,
-        { nitrogen: n, phosphorus: p, potassium: k },
-        userLocation, 
-        autoDetected ? null : weather, 
+        userLocation,
+        autoDetected ? null : weather,
         temperature ? parseFloat(temperature) : null,
         phValue,
         detectedWeather?.humidity || null,
-        userEmail, 
-        locationName 
+        userEmail,
+        locationName
       );
 
       router.push({
@@ -178,59 +173,38 @@ export default function NPKInputScreen() {
             <Text style={styles.summaryLabel}>Growth Stage</Text>
             <Text style={styles.summaryValue}>{detection.growth_stage}</Text>
           </View>
+          {detection.plant_id && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Plant ID</Text>
+              <Text style={styles.summaryValue}>#{detection.plant_id}</Text>
+            </View>
+          )}
+          {detection.plant_height_cm && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Plant Height</Text>
+              <Text style={styles.summaryValue}>{detection.plant_height_cm} cm</Text>
+            </View>
+          )}
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Leaves</Text>
+            <Text style={styles.summaryValue}>{detection.leaves_count}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Flowers</Text>
+            <Text style={styles.summaryValue}>{detection.flowers_count}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Fruits</Text>
+            <Text style={styles.summaryValue}>{detection.fruits_count}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.inputSection}>
-        <Text style={styles.sectionTitle}>🧪 Soil NPK Levels (mg/kg)</Text>
+        <Text style={styles.sectionTitle}>🌱 Soil Parameters</Text>
         <Text style={styles.sectionDescription}>
-          Test your soil with an NPK meter and enter the values
+          Enter soil pH to get personalized fertilizer recommendations
         </Text>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nitrogen (N)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={nitrogen}
-              onChangeText={setNitrogen}
-              keyboardType="numeric"
-              placeholder="70"
-            />
-            <Text style={styles.unit}>mg/kg</Text>
-          </View>
-          <Text style={styles.hint}>Soil nitrogen level</Text>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phosphorus (P)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={phosphorus}
-              onChangeText={setPhosphorus}
-              keyboardType="numeric"
-              placeholder="90"
-            />
-            <Text style={styles.unit}>mg/kg</Text>
-          </View>
-          <Text style={styles.hint}>Soil phosphorus level</Text>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Potassium (K)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={potassium}
-              onChangeText={setPotassium}
-              keyboardType="numeric"
-              placeholder="170"
-            />
-            <Text style={styles.unit}>mg/kg</Text>
-          </View>
-          <Text style={styles.hint}>Soil potassium level</Text>
-        </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Soil pH</Text>
@@ -244,7 +218,7 @@ export default function NPKInputScreen() {
             />
             <Text style={styles.unit}>pH</Text>
           </View>
-          <Text style={styles.hint}>Soil pH level (5.5-7.0 ideal)</Text>
+          <Text style={styles.hint}>Soil pH level (6.0-6.8 optimal for Scotch Bonnet)</Text>
         </View>
       </View>
 
@@ -359,10 +333,10 @@ export default function NPKInputScreen() {
 
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>💡 Tips:</Text>
-        <Text style={styles.infoText}>• If you don't have an NPK meter, you can enter estimated values</Text>
-        <Text style={styles.infoText}>• 📍 Use weather auto-detect - automatically detects from your location</Text>
-        <Text style={styles.infoText}>• Allow location permission to enable weather detection</Text>
-        <Text style={styles.infoText}>• Auto-detected values can be changed manually if needed</Text>
+        <Text style={styles.infoText}>• Fertilizer recommendations are based on growth stage and environmental conditions</Text>
+        <Text style={styles.infoText}>• 📍 Use weather auto-detect for accurate humidity readings</Text>
+        <Text style={styles.infoText}>• Optimal pH for Scotch Bonnet is 6.0-6.8</Text>
+        <Text style={styles.infoText}>• Auto-detected values can be adjusted manually if needed</Text>
       </View>
     </ScrollView>
   );

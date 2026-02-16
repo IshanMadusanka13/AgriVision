@@ -71,7 +71,6 @@ export default function SessionDetailsScreen() {
   }
 
   const session = sessionData.session;
-  const npkStatus = sessionData.npk_status;
   const recommendations = sessionData.fertilizer_recommendations;
 
   return (
@@ -112,39 +111,6 @@ export default function SessionDetailsScreen() {
               <Text style={styles.detectionIcon}>🌶️</Text>
               <Text style={styles.detectionLabel}>Fruits</Text>
               <Text style={styles.detectionValue}>{session.fruit_count}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🧪 NPK Levels</Text>
-          <View style={styles.npkGrid}>
-            <View style={styles.npkItem}>
-              <Text style={styles.npkLabel}>Nitrogen (N)</Text>
-              <Text style={styles.npkValue}>{session.nitrogen} mg/kg</Text>
-              {npkStatus && (
-                <Text style={[styles.npkStatus, getStatusColor(npkStatus.nitrogen_level)]}>
-                  {npkStatus.nitrogen_level}
-                </Text>
-              )}
-            </View>
-            <View style={styles.npkItem}>
-              <Text style={styles.npkLabel}>Phosphorus (P)</Text>
-              <Text style={styles.npkValue}>{session.phosphorus} mg/kg</Text>
-              {npkStatus && (
-                <Text style={[styles.npkStatus, getStatusColor(npkStatus.phosphorus_level)]}>
-                  {npkStatus.phosphorus_level}
-                </Text>
-              )}
-            </View>
-            <View style={styles.npkItem}>
-              <Text style={styles.npkLabel}>Potassium (K)</Text>
-              <Text style={styles.npkValue}>{session.potassium} mg/kg</Text>
-              {npkStatus && (
-                <Text style={[styles.npkStatus, getStatusColor(npkStatus.potassium_level)]}>
-                  {npkStatus.potassium_level}
-                </Text>
-              )}
             </View>
           </View>
         </View>
@@ -197,19 +163,6 @@ export default function SessionDetailsScreen() {
     </SafeAreaView>
   );
 }
-
-const getStatusColor = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'optimal':
-      return { color: '#059669' };
-    case 'low':
-      return { color: '#dc2626' };
-    case 'high':
-      return { color: '#f59e0b' };
-    default:
-      return { color: '#6b7280' };
-  }
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -292,30 +245,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
-  },
-  npkGrid: {
-    gap: 12,
-  },
-  npkItem: {
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-  },
-  npkLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  npkValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  npkStatus: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
   },
   envGrid: {
     flexDirection: 'row',

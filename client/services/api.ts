@@ -11,6 +11,8 @@ export interface DetectionResult {
   leaves_count: number;
   flowers_count: number;
   fruits_count: number;
+  plant_height_cm?: number | null;
+  plant_id?: number | null;
 }
 
 interface Detection {
@@ -31,12 +33,6 @@ interface DiseaseResult {
   created_at?: string;
 }
 
-export interface NPKStatus {
-  level: 'optimal' | 'low' | 'high';
-  current: number;
-  optimal: number;
-}
-
 export interface WeekPlanDay {
   day: string;
   fertilizer_type: string;
@@ -47,14 +43,9 @@ export interface WeekPlanDay {
 }
 
 export interface Recommendation {
-  npk_status: {
-    nitrogen: NPKStatus;
-    phosphorus: NPKStatus;
-    potassium: NPKStatus;
-  };
-  warnings?: string[];
+  warnings: string[];
   week_plan: WeekPlanDay[];
-  tips?: string[];
+  tips: string[];
 }
 
 export interface FullAnalysisResult {
@@ -63,12 +54,6 @@ export interface FullAnalysisResult {
   recommendation: Recommendation;
   session_id?: string | null;
   saved_to_db?: boolean;
-}
-
-export interface NPKData {
-  nitrogen: number;
-  phosphorus: number;
-  potassium: number;
 }
 
 export interface WeatherData {
@@ -136,7 +121,7 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.12:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.102:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -329,7 +314,6 @@ export const detectPlant = async (imageUri: string): Promise<DetectionResult> =>
 export const getRecommendation = async (
   data: {
     growth_stage: string;
-    npk_levels: NPKData;
     latitude?: number | null;
     longitude?: number | null;
     weather_condition?: string | null;
@@ -348,7 +332,6 @@ export const getRecommendation = async (
 
 export const getFullAnalysis = async (
   imageUri: string,
-  npkData: NPKData,
   location?: Location | null,
   weather?: string | null,
   temperature?: number | null,
@@ -359,10 +342,6 @@ export const getFullAnalysis = async (
 ): Promise<FullAnalysisResult> => {
   try {
     const formData = createImageFormData(imageUri);
-
-    Object.entries(npkData).forEach(([key, value]) => {
-      formData.append(key, value.toString());
-    });
 
     appendOptionalFields(formData, {
       latitude: location?.latitude,

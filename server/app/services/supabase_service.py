@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, date
 from uuid import UUID, uuid4
 import os
-from configs.supabase_client import get_supabase_client
+from app.configs.supabase_client import get_supabase_client
 
 
 class SupabaseService:
@@ -31,9 +31,6 @@ class SupabaseService:
     def create_analysis_session(
         self,
         user_id: str,
-        nitrogen: Optional[float] = None,
-        phosphorus: Optional[float] = None,
-        potassium: Optional[float] = None,
         ph: Optional[float] = None,
         temperature: Optional[float] = None,
         humidity: Optional[float] = None,
@@ -50,12 +47,9 @@ class SupabaseService:
         ripening_count: int = 0,
         current_weather: Optional[str] = None,
     ) -> Dict:
-        
+
         session_data = {
             "user_id": user_id,
-            "nitrogen": nitrogen,
-            "phosphorus": phosphorus,
-            "potassium": potassium,
             "ph": ph,
             "temperature": temperature,
             "humidity": humidity,
@@ -139,36 +133,6 @@ class SupabaseService:
         )
         return response.data
 
-
-    def save_npk_status(self, session_id: str, npk_status: Dict) -> Dict:
-       
-        npk_record = {
-            "session_id": session_id,
-            "nitrogen_level": npk_status.get("nitrogen", {}).get("level"),
-            "nitrogen_current": npk_status.get("nitrogen", {}).get("current"),
-            "nitrogen_optimal_range": npk_status.get("nitrogen", {}).get("optimal"),
-            "phosphorus_level": npk_status.get("phosphorus", {}).get("level"),
-            "phosphorus_current": npk_status.get("phosphorus", {}).get("current"),
-            "phosphorus_optimal_range": npk_status.get("phosphorus", {}).get(
-                "optimal"
-            ),
-            "potassium_level": npk_status.get("potassium", {}).get("level"),
-            "potassium_current": npk_status.get("potassium", {}).get("current"),
-            "potassium_optimal_range": npk_status.get("potassium", {}).get("optimal"),
-        }
-
-        response = self.client.table("npk_status").insert(npk_record).execute()
-        return response.data[0] if response.data else None
-
-    def get_npk_status(self, session_id: str) -> Optional[Dict]:
-       
-        response = (
-            self.client.table("npk_status")
-            .select("*")
-            .eq("session_id", session_id)
-            .execute()
-        )
-        return response.data[0] if response.data else None
 
     def save_fertilizer_recommendations(
         self, session_id: str, week_plan: List[Dict]
@@ -281,12 +245,9 @@ class SupabaseService:
         npk_status: Dict,
         fertilizer_recommendation: Dict,
     ) -> str:
-        
+
         session = self.create_analysis_session(
             user_id=user_id,
-            nitrogen=npk_data.get("nitrogen"),
-            phosphorus=npk_data.get("phosphorus"),
-            potassium=npk_data.get("potassium"),
             ph=environmental_data.get("ph"),
             temperature=environmental_data.get("temperature"),
             humidity=environmental_data.get("humidity"),
@@ -309,8 +270,7 @@ class SupabaseService:
         if weather_forecast:
             self.save_weather_forecast(session_id, weather_forecast)
 
-        if npk_status:
-            self.save_npk_status(session_id, npk_status)
+        # NPK status no longer saved
 
         if fertilizer_recommendation:
             week_plan = fertilizer_recommendation.get("week_plan", [])
@@ -326,20 +286,18 @@ class SupabaseService:
         return session_id
 
     def get_complete_analysis(self, session_id: str) -> Dict:
-        
+
         session = self.get_session_by_id(session_id)
         if not session:
             return None
 
         weather_forecast = self.get_weather_forecast(session_id)
-        npk_status = self.get_npk_status(session_id)
         fertilizer_recommendations = self.get_fertilizer_recommendations(session_id)
         metadata = self.get_recommendations_metadata(session_id)
 
         return {
             "session": session,
             "weather_forecast": weather_forecast,
-            "npk_status": npk_status,
             "fertilizer_recommendations": fertilizer_recommendations,
             "warnings": metadata.get("warnings", []) if metadata else [],
             "tips": metadata.get("tips", []) if metadata else [],
