@@ -121,7 +121,7 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.102:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.12:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -304,6 +304,7 @@ export const detectPlant = async (imageUri: string): Promise<DetectionResult> =>
     const formData = createImageFormData(imageUri);
     const response = await api.post<DetectionResult>('/api/growth/detect', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2 min — ML model inference takes time
     });
     return response.data;
   } catch (error) {

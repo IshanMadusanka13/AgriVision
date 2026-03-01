@@ -10,6 +10,7 @@ from app.routes.admin_router import router as admin_router
 from app.routes.planting.field_management_router import router as field_management_router
 from app.routes.planting.layout_generator_router import router as layout_generator_router
 from app.routes.planting.planting_router import router as planting_router
+from app.routes.aruco_marker_router import router as aruco_marker_router
 
 app = FastAPI(title="AgriVision API", version="1.0.0")
 app.add_middleware(
@@ -42,3 +43,4 @@ app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
 app.include_router(planting_router, prefix="/api/planting", tags=["Precision Planting"])
 app.include_router(field_management_router, prefix="/api/planting", tags=["Field Management"])
 app.include_router(layout_generator_router, prefix="/api/planting", tags=["Layout Generation"])
+app.include_router(aruco_marker_router, prefix="/api/aruco", tags=["ArUco Markers"])

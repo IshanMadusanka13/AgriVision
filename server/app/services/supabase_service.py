@@ -309,59 +309,62 @@ class SupabaseService:
 
 # ==================== Disease Detection Operations ====================
 
-def get_disease_info_by_name(self, disease_name: str) -> Optional[Dict]:
-    """
-    Get disease information by name
+    def get_disease_info_by_name(self, disease_name: str) -> Optional[Dict]:
+        """
+        Get disease information by name
+
+        Args:
+            disease_name: Name of the disease
+
+        Returns:
+            Dict: Disease information or None
+        """
+        response = (
+            self.client.table("disease_info")
+            .select("*")
+            .eq("disease_name", disease_name)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+
+    def get_multiple_diseases_info(self, disease_names: List[str]) -> List[Dict]:
+        """
+        Get information for multiple diseases
+
+        Args:
+            disease_names: List of disease names
+
+        Returns:
+            List[Dict]: List of disease information
+        """
+        if not disease_names:
+            return []
+
+        response = (
+            self.client.table("disease_info")
+            .select("*")
+            .in_("disease_name", disease_names)
+            .execute()
+        )
+        return response.data if response.data else []
+
+
+    def create_disease_detection(
+        self,
+        user_id: str,
+        annotated_image_url: Optional[str],
+        total_detections: int,
+        detections: List[Dict],
+        disease_summary: Dict,
+        conclusion: str,
+        recommendations: Dict,
+        status: str
+        ) -> Dict:
+        """
+        Create a new disease detection record
     
-    Args:
-        disease_name: Name of the disease
-        
-    Returns:
-        Dict: Disease information or None
-    """
-    response = (
-        self.client.table("disease_info")
-        .select("*")
-        .eq("disease_name", disease_name)
-        .execute()
-    )
-    return response.data[0] if response.data else None
-
-
-def get_multiple_diseases_info(self, disease_names: List[str]) -> List[Dict]:
-    """
-    Get information for multiple diseases
-    
-    Args:
-        disease_names: List of disease names
-        
-    Returns:
-        List[Dict]: List of disease information
-    """
-    response = (
-        self.client.table("disease_info")
-        .select("*")
-        .in_("disease_name", disease_names)
-        .execute()
-    )
-    return response.data
-
-
-def create_disease_detection(
-    self,
-    user_id: str,
-    annotated_image_url: Optional[str],
-    total_detections: int,
-    detections: List[Dict],
-    disease_summary: Dict,
-    conclusion: str,
-    recommendations: Dict,
-    status: str
-) -> Dict:
-    """
-    Create a new disease detection record
-    
-    Args:
+        Args:
         user_id: User ID
         annotated_image_url: URL of annotated image
         total_detections: Total number of detections
@@ -371,10 +374,10 @@ def create_disease_detection(
         recommendations: Treatment recommendations
         status: Detection status
         
-    Returns:
+        Returns:
         Dict: Created detection record
-    """
-    detection_data = {
+        """
+        detection_data = {
         "user_id": user_id,
         "annotated_image_url": annotated_image_url,
         "total_detections": total_detections,
@@ -383,146 +386,254 @@ def create_disease_detection(
         "conclusion": conclusion,
         "recommendations": recommendations,
         "status": status
-    }
+        }
     
-    response = (
+        response = (
         self.client.table("disease_detections")
         .insert(detection_data)
         .execute()
-    )
-    return response.data[0] if response.data else None
+        )
+        return response.data[0] if response.data else None
 
 
-def get_detection_by_id(self, detection_id: str) -> Optional[Dict]:
-    """
-    Get a disease detection by ID
+    def get_detection_by_id(self, detection_id: str) -> Optional[Dict]:
+        """
+        Get a disease detection by ID
     
-    Args:
+        Args:
         detection_id: Detection ID
         
-    Returns:
+        Returns:
         Dict: Detection data or None
-    """
-    response = (
+        """
+        response = (
         self.client.table("disease_detections")
         .select("*")
         .eq("id", detection_id)
         .execute()
-    )
-    return response.data[0] if response.data else None
+        )
+        return response.data[0] if response.data else None
 
 
-def get_user_detections(
-    self, 
-    user_id: str, 
-    limit: int = 10, 
-    offset: int = 0
-) -> List[Dict]:
-    """
-    Get all disease detections for a user
+    def get_user_detections(
+        self, 
+        user_id: str, 
+        limit: int = 10, 
+        offset: int = 0
+        ) -> List[Dict]:
+        """
+        Get all disease detections for a user
     
-    Args:
+        Args:
         user_id: User ID
         limit: Number of records to return
         offset: Offset for pagination
         
-    Returns:
+        Returns:
         List[Dict]: List of detection records
-    """
-    response = (
+        """
+        response = (
         self.client.table("disease_detections")
         .select("*")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
-    )
-    return response.data
+        )
+        return response.data
 
 
-def get_detection_statistics(self, user_id: str) -> Dict:
-    """
-    Get statistics about user's disease detections
+    def get_detection_statistics(self, user_id: str) -> Dict:
+        """
+        Get statistics about user's disease detections
     
-    Args:
+        Args:
         user_id: User ID
         
-    Returns:
+        Returns:
         Dict: Statistics including total scans, diseases found, etc.
-    """
-    # Get all user detections
-    response = (
-        self.client.table("disease_detections")
-        .select("total_detections, disease_summary, status")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    
-    if not response.data:
+        """
+        # Get all user detections
+        response = (
+            self.client.table("disease_detections")
+            .select("total_detections, disease_summary, status")
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        if not response.data:
+            return {
+                "total_scans": 0,
+                "total_detections": 0,
+                "diseases_found": {},
+                "healthy_scans": 0
+            }
+
+        total_scans = len(response.data)
+        total_detections = sum(d["total_detections"] for d in response.data)
+
+        # Aggregate disease counts
+        all_diseases = {}
+        healthy_scans = 0
+
+        for detection in response.data:
+            disease_summary = detection.get("disease_summary", {})
+            for disease, count in disease_summary.items():
+                if "healthy" in disease.lower():
+                    healthy_scans += 1
+                all_diseases[disease] = all_diseases.get(disease, 0) + count
+
         return {
-            "total_scans": 0,
-            "total_detections": 0,
-            "diseases_found": {},
-            "healthy_scans": 0
+            "total_scans": total_scans,
+            "total_detections": total_detections,
+            "diseases_found": all_diseases,
+            "healthy_scans": healthy_scans
         }
-    
-    total_scans = len(response.data)
-    total_detections = sum(d["total_detections"] for d in response.data)
-    
-    # Aggregate disease counts
-    all_diseases = {}
-    healthy_scans = 0
-    
-    for detection in response.data:
-        disease_summary = detection.get("disease_summary", {})
-        for disease, count in disease_summary.items():
-            if "healthy" in disease.lower():
-                healthy_scans += 1
-            all_diseases[disease] = all_diseases.get(disease, 0) + count
-    
-    return {
-        "total_scans": total_scans,
-        "total_detections": total_detections,
-        "diseases_found": all_diseases,
-        "healthy_scans": healthy_scans
-    }
 
 
-def upload_detection_image(
-    self, 
-    image_bytes: bytes, 
-    user_id: str,
-    content_type: str = "image/png"
-) -> str:
-    """
-    Upload disease detection image to Supabase Storage
+    def upload_detection_image(
+        self, 
+        image_bytes: bytes, 
+        user_id: str,
+        content_type: str = "image/png"
+        ) -> str:
+        """
+        Upload disease detection image to Supabase Storage
     
-    Args:
+        Args:
         image_bytes: Image data as bytes
         user_id: User ID
         content_type: Image content type
         
-    Returns:
+        Returns:
         str: Public URL of uploaded image
-    """
-    try:
-        from uuid import uuid4
-        
-        # Generate unique filename
-        file_extension = "png" if "png" in content_type else "jpg"
-        file_name = f"{user_id}/detections/{uuid4()}.{file_extension}"
-        
-        # Upload to Supabase Storage
-        response = self.client.storage.from_("plant-images").upload(
-            file_name, 
-            image_bytes,
-            {"content-type": content_type}
+        """
+        try:
+            from uuid import uuid4
+
+            # Generate unique filename
+            file_extension = "png" if "png" in content_type else "jpg"
+            file_name = f"{user_id}/detections/{uuid4()}.{file_extension}"
+
+            # Upload to Supabase Storage
+            response = self.client.storage.from_("plant-images").upload(
+                file_name,
+                image_bytes,
+                {"content-type": content_type}
+            )
+
+            # Get public URL
+            public_url = self.client.storage.from_("plant-images").get_public_url(file_name)
+
+            return public_url
+        except Exception as e:
+            print(f"Error uploading detection image: {e}")
+            return None
+
+
+        # ==================== ArUco Marker Management ====================
+
+    def create_aruco_marker(
+        self,
+        user_id: str,
+        marker_id: int,
+        size_cm: float = 5.0,
+        status: str = "generated"
+        ) -> Dict:
+        """Create a new ArUco marker record"""
+        marker_data = {
+        "user_id": user_id,
+        "marker_id": marker_id,
+        "size_cm": size_cm,
+        "status": status,
+        "assigned_to_plant": False
+        }
+
+        response = (
+        self.client.table("aruco_markers")
+        .insert(marker_data)
+        .execute()
         )
-        
-        # Get public URL
-        public_url = self.client.storage.from_("plant-images").get_public_url(file_name)
-        
-        return public_url
-    except Exception as e:
-        print(f"Error uploading detection image: {e}")
-        return None
+        return response.data[0] if response.data else None
+
+
+    def get_user_markers(self, user_id: str) -> List[Dict]:
+        """Get all markers for a user"""
+        response = (
+        self.client.table("aruco_markers")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("marker_id")
+        .execute()
+        )
+        return response.data
+
+
+    def check_marker_exists(self, user_id: str, marker_id: int) -> bool:
+        """Check if a marker ID already exists for a user"""
+        response = (
+        self.client.table("aruco_markers")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("marker_id", marker_id)
+        .execute()
+        )
+        return len(response.data) > 0
+
+
+    def get_available_marker_ids(self, user_id: str, max_id: int = 1000) -> List[int]:
+        """Get list of available marker IDs for a user"""
+        existing = (
+        self.client.table("aruco_markers")
+        .select("marker_id")
+        .eq("user_id", user_id)
+        .execute()
+        )
+
+        existing_ids = set(m["marker_id"] for m in existing.data)
+        all_ids = set(range(0, max_id + 1))
+        available_ids = sorted(list(all_ids - existing_ids))
+
+        return available_ids
+
+
+    def update_marker_status(
+        self,
+        user_id: str,
+        marker_id: int,
+        status: str,
+        assigned_to_plant: bool = None
+        ) -> Dict:
+        """Update marker status"""
+        update_data = {"status": status}
+        if assigned_to_plant is not None:
+            update_data["assigned_to_plant"] = assigned_to_plant
+
+        response = (
+            self.client.table("aruco_markers")
+            .update(update_data)
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+
+    def get_marker_statistics(self, user_id: str) -> Dict:
+        """Get marker usage statistics for a user"""
+        markers = self.get_user_markers(user_id)
+
+        total = len(markers)
+        assigned = sum(1 for m in markers if m.get("assigned_to_plant"))
+        statuses = {}
+
+        for marker in markers:
+            status = marker.get("status", "unknown")
+            statuses[status] = statuses.get(status, 0) + 1
+
+        return {
+            "total_generated": total,
+            "assigned_to_plants": assigned,
+            "available": total - assigned,
+            "status_breakdown": statuses
+        }
