@@ -184,8 +184,8 @@ export default function MarkerGeneratorScreen() {
               }
               img {
                 display: block;
-                width: ${marker.size_cm}cm;
-                height: ${marker.size_cm}cm;
+                width: ${marker.print_size_cm}cm;
+                height: ${marker.print_size_cm}cm;
                 image-rendering: pixelated;
                 image-rendering: -moz-crisp-edges;
                 image-rendering: crisp-edges;
@@ -335,8 +335,8 @@ export default function MarkerGeneratorScreen() {
               }
               img {
                 display: block;
-                width: ${firstSize}cm;
-                height: ${firstSize}cm;
+                width: ${generatedMarkers[0].print_size_cm}cm;
+                height: ${generatedMarkers[0].print_size_cm}cm;
                 image-rendering: pixelated;
                 image-rendering: -moz-crisp-edges;
                 image-rendering: crisp-edges;

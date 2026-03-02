@@ -24,6 +24,7 @@ class MarkerResponse(BaseModel):
     marker_id: int
     image_base64: str
     size_cm: float
+    print_size_cm: float
     created_at: str
 
 
@@ -39,18 +40,13 @@ def generate_aruco_marker(
     marker_size_cm: float = 5.0,
     with_label: bool = True,
     dpi: int = 300
-) -> str:
+) -> tuple:
     """
-    Generate a single ArUco marker and return as base64 encoded image
-
-    Args:
-        marker_id: ID of the marker (1-50 for DICT_4X4_50)
-        marker_size_cm: Physical size in centimeters
-        with_label: Whether to include ID label
-        dpi: DPI for printing (300 recommended)
+    Generate a single ArUco marker and return as base64 encoded image.
 
     Returns:
-        Base64 encoded PNG image
+        (img_base64, print_size_cm) — print_size_cm is the total image size
+        to use when printing so the ArUco square measures exactly marker_size_cm.
     """
     # Calculate pixel size based on DPI
     pixels_per_cm = dpi / 2.54
@@ -67,6 +63,7 @@ def generate_aruco_marker(
         # Add white border and label
         border_size = int(marker_size_px * 0.15)
         total_size = marker_size_px + 2 * border_size
+        print_size_cm = round(total_size / pixels_per_cm, 4)
 
         # Create white background
         labeled_img = np.ones((total_size, total_size), dtype=np.uint8) * 255
@@ -116,7 +113,10 @@ def generate_aruco_marker(
     pil_final.save(buffer, format='PNG', dpi=(dpi, dpi))
     img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-    return img_base64
+    if not with_label:
+        print_size_cm = marker_size_cm
+
+    return img_base64, print_size_cm
 
 
 @router.post("/generate", response_model=BatchMarkerResponse)
@@ -191,7 +191,7 @@ async def generate_markers(request: MarkerGenerateRequest):
                     print(f"⚠ Duplicate check failed (table may not exist): {check_error}")
 
             # Generate marker image
-            img_base64 = generate_aruco_marker(
+            img_base64, print_size_cm = generate_aruco_marker(
                 marker_id=marker_id,
                 marker_size_cm=request.marker_size_cm,
                 with_label=request.with_label
@@ -201,6 +201,7 @@ async def generate_markers(request: MarkerGenerateRequest):
                 marker_id=marker_id,
                 image_base64=img_base64,
                 size_cm=request.marker_size_cm,
+                print_size_cm=print_size_cm,
                 created_at=datetime.now().isoformat()
             )
 
@@ -253,7 +254,7 @@ async def preview_marker(marker_id: int, size_cm: float = 5.0, with_label: bool 
                 detail="Marker ID must be between 0 and 49"
             )
 
-        img_base64 = generate_aruco_marker(
+        img_base64, print_size_cm = generate_aruco_marker(
             marker_id=marker_id,
             marker_size_cm=size_cm,
             with_label=with_label
@@ -263,6 +264,7 @@ async def preview_marker(marker_id: int, size_cm: float = 5.0, with_label: bool 
             marker_id=marker_id,
             image_base64=img_base64,
             size_cm=size_cm,
+            print_size_cm=print_size_cm,
             created_at=datetime.now().isoformat()
         )
 

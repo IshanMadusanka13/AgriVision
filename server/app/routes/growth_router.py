@@ -130,7 +130,7 @@ async def detect_plant(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Failed to read image file.")
 
         # Use determine_growth_stage function to perform detection and determine growth stage
-        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img, model)
+        growth_stage_key, confidence, counts, debug_image_path, annotated_img = determine_growth_stage(img, model)
 
         stage_map = {
             "early_vegetative": "Early Vegetative Stage",
@@ -149,7 +149,7 @@ async def detect_plant(file: UploadFile = File(...)):
         try:
             from app.services.plant_tracking_service import PlantTrackingService
             tracking_service = PlantTrackingService(
-                yolo_model_path=None,  # We already have detections
+                yolo_model_path=None,
                 aruco_marker_size_cm=5.0,
                 aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL
             )
@@ -167,6 +167,7 @@ async def detect_plant(file: UploadFile = File(...)):
                     # Get the highest leaf point from YOLO detections
                     results = model.predict(img, conf=0.5)
                     highest_y = None
+                    highest_x = None
 
                     for result in results:
                         for box in result.boxes:
@@ -179,15 +180,49 @@ async def detect_plant(file: UploadFile = File(...)):
 
                                 if highest_y is None or top_y < highest_y:
                                     highest_y = top_y
+                                    highest_x = int((x1 + x2) / 2)
 
                     print(f"[ArUco] highest_y={highest_y}, ground_level_y={marker_info['bottom_center'][1]}, pixel_size={marker_info['pixel_size']:.2f}")
 
                     if highest_y is not None:
                         ground_level_y = marker_info['bottom_center'][1]
+                        ground_level_x = marker_info['bottom_center'][0]
                         pixel_ratio = marker_info['pixel_size'] / 5.0
                         plant_height_cm = (ground_level_y - highest_y) / pixel_ratio
                         plant_height_cm = round(plant_height_cm, 1)
                         print(f"[ArUco] ✓ Plant height: {plant_height_cm} cm")
+
+                        # Draw height visualization on annotated image
+                        if annotated_img is not None and debug_image_path:
+                            out = annotated_img.copy()
+
+                            # ArUco marker border
+                            corners = marker_info['corners'].astype(int)
+                            cv2.polylines(out, [corners], True, (0, 255, 0), 3)
+                            cv2.putText(out, f"Plant ID: {plant_id}",
+                                        (corners[0][0], corners[0][1] - 12),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+                            # Ground level horizontal line
+                            cv2.line(out, (0, ground_level_y), (out.shape[1], ground_level_y),
+                                     (0, 0, 255), 2)
+
+                            # Top leaf point
+                            top_pt = (highest_x, int(highest_y))
+                            cv2.circle(out, top_pt, 8, (255, 0, 255), -1)
+
+                            # Vertical height line
+                            cv2.line(out, (ground_level_x, ground_level_y),
+                                     (ground_level_x, int(highest_y)), (255, 0, 255), 2)
+
+                            # Height label at midpoint
+                            mid_y = (ground_level_y + int(highest_y)) // 2
+                            cv2.putText(out, f"{plant_height_cm} cm",
+                                        (ground_level_x + 12, mid_y),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 255), 2)
+
+                            cv2.imwrite(debug_image_path, out)
+                            print(f"[ArUco] ✓ Height annotated image saved: {debug_image_path}")
                     else:
                         print("[ArUco] ✗ No leaf detected — height cannot be calculated")
                 else:
@@ -295,7 +330,7 @@ async def full_analysis(
         if img is None:
             raise HTTPException(status_code=400, detail="Failed to read image file.")
 
-        growth_stage_key, confidence, counts, debug_image_path = determine_growth_stage(img, model)
+        growth_stage_key, confidence, counts, debug_image_path, _ = determine_growth_stage(img, model)
 
         annotated_image_path = debug_image_path if debug_image_path else None
 

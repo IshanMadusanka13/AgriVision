@@ -36,6 +36,7 @@ export interface GeneratedMarker {
   marker_id: number;
   image_base64: string;
   size_cm: number;
+  print_size_cm: number;
   created_at: string;
 }
 

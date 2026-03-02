@@ -20,10 +20,10 @@ class DetectionCounts(BaseModel):
     ripening: int
 
 
-def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str]:
+def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str, np.ndarray]:
 
     if img is None:
-        return "unknown", 0.0, DetectionCounts(flower=0, fruit=0, leaf=0, ripening=0), ""
+        return "unknown", 0.0, DetectionCounts(flower=0, fruit=0, leaf=0, ripening=0), "", img
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     debug_dir = "app/debug_images"
@@ -58,12 +58,12 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     is_scotch_bonnet = counts["leaf"] > 0
 
     if not is_scotch_bonnet:
-        return "unknown", 0.0, DetectionCounts(**counts), output_path
+        return "unknown", 0.0, DetectionCounts(**counts), output_path, annotated_img
 
     total_detections = counts["leaf"] + counts["flower"] + counts["fruit"]
 
     if total_detections == 0:
-        return "unknown", 0.0, DetectionCounts(**counts), output_path
+        return "unknown", 0.0, DetectionCounts(**counts), output_path, annotated_img
 
     confidence = min(avg_conf * 100, 100.0)
 
@@ -78,7 +78,7 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     else:
         growth_stage = "early_vegetative"
 
-    return growth_stage, confidence, DetectionCounts(**counts), output_path
+    return growth_stage, confidence, DetectionCounts(**counts), output_path, annotated_img
 
 
 def generate_growth_recommendations(
