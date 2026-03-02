@@ -150,14 +150,17 @@ async def detect_plant(file: UploadFile = File(...)):
             from app.services.plant_tracking_service import PlantTrackingService
             tracking_service = PlantTrackingService(
                 yolo_model_path=None,  # We already have detections
-                aruco_marker_size_cm=5.0
+                aruco_marker_size_cm=5.0,
+                aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL
             )
 
             # Detect ArUco marker
             marker_info = tracking_service.detect_aruco_marker(img)
+            print(f"[ArUco] marker_info = {marker_info}")
 
             if marker_info:
                 plant_id = marker_info['plant_id']
+                print(f"[ArUco] ✓ Plant ID detected: {plant_id}")
 
                 # Calculate plant height if we have leaf detections
                 if counts.leaf > 0:
@@ -177,14 +180,23 @@ async def detect_plant(file: UploadFile = File(...)):
                                 if highest_y is None or top_y < highest_y:
                                     highest_y = top_y
 
+                    print(f"[ArUco] highest_y={highest_y}, ground_level_y={marker_info['bottom_center'][1]}, pixel_size={marker_info['pixel_size']:.2f}")
+
                     if highest_y is not None:
                         ground_level_y = marker_info['bottom_center'][1]
                         pixel_ratio = marker_info['pixel_size'] / 5.0
                         plant_height_cm = (ground_level_y - highest_y) / pixel_ratio
                         plant_height_cm = round(plant_height_cm, 1)
+                        print(f"[ArUco] ✓ Plant height: {plant_height_cm} cm")
+                    else:
+                        print("[ArUco] ✗ No leaf detected — height cannot be calculated")
+                else:
+                    print(f"[ArUco] ✗ leaf count = {counts.leaf} — height skipped")
+            else:
+                print("[ArUco] ✗ No marker detected in image")
         except Exception as e:
             # ArUco detection failed, but continue with regular detection
-            print(f"ArUco detection error (continuing without height): {e}")
+            print(f"[ArUco] ERROR: {e}")
 
         return DetectionResult(
             growth_stage=growth_stage,

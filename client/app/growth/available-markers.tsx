@@ -10,9 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.102:8000';
+import { getAvailableMarkerIds, getUserMarkers } from '@/services/api';
 
 export default function AvailableMarkersScreen() {
   const [loading, setLoading] = useState(true);
@@ -34,23 +32,13 @@ export default function AvailableMarkersScreen() {
       }
       setUserEmail(email);
 
-      // Fetch available IDs
-      const availableResponse = await axios.get(
-        `${API_URL}/api/aruco/available-ids/${email}?limit=100`
-      );
+      const [ids, { statistics: stats }] = await Promise.all([
+        getAvailableMarkerIds(email, 100),
+        getUserMarkers(email),
+      ]);
 
-      if (availableResponse.data.success) {
-        setAvailableIds(availableResponse.data.available_ids);
-      }
-
-      // Fetch statistics
-      const statsResponse = await axios.get(
-        `${API_URL}/api/aruco/user-markers/${email}`
-      );
-
-      if (statsResponse.data.success) {
-        setStatistics(statsResponse.data.statistics);
-      }
+      setAvailableIds(ids);
+      if (stats) setStatistics(stats);
     } catch (error) {
       console.error('Error fetching markers:', error);
       Alert.alert('Error', 'Failed to fetch marker information');

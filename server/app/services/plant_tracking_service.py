@@ -29,7 +29,7 @@ class PlantTrackingService:
         self,
         yolo_model_path: Optional[str] = None,
         aruco_marker_size_cm: float = 5.0,
-        aruco_dict_type: int = cv2.aruco.DICT_4X4_50
+        aruco_dict_type: int = cv2.aruco.DICT_ARUCO_ORIGINAL
     ):
         """
         Initialize the plant tracking service.

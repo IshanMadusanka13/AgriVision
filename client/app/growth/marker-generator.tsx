@@ -13,29 +13,20 @@ import {
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.183:8000';
-
-interface GeneratedMarker {
-  marker_id: number;
-  image_base64: string;
-  size_cm: number;
-  created_at: string;
-}
-
-interface SavedMarkerMeta {
-  marker_id: number;
-  size_cm: number;
-  status: string;
-  created_at: string;
-}
+import {
+  generateMarkers,
+  getAvailableMarkerIds,
+  getUserMarkers,
+  getMarkerPreview,
+  GeneratedMarker,
+  SavedMarkerMeta,
+} from '@/services/api';
 
 export default function MarkerGeneratorScreen() {
-  const [startId, setStartId] = useState('1');
-  const [endId, setEndId] = useState('5');
+  const [startId, setStartId] = useState('0');
+  const [endId, setEndId] = useState('11');
   const [markerSize, setMarkerSize] = useState('5.0');
   const [withLabel, setWithLabel] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -82,23 +73,17 @@ export default function MarkerGeneratorScreen() {
     try {
       const userEmail = await AsyncStorage.getItem('userEmail');
 
-      const response = await axios.post(`${API_URL}/api/aruco/generate`, {
+      const data = await generateMarkers({
         start_id: start,
         end_id: end,
         marker_size_cm: size,
         with_label: withLabel,
-        save_to_db: true, 
         user_email: userEmail,
       });
 
-      if (response.data.success) {
-        setGeneratedMarkers(response.data.markers);
-        Alert.alert(
-          'Success',
-          `Successfully generated ${response.data.total_generated} markers!`,
-          [{ text: 'OK' }]
-        );
-        // Refresh available IDs after generation
+      if (data.success) {
+        setGeneratedMarkers(data.markers);
+        Alert.alert('Success', `Successfully generated ${data.total_generated} markers!`, [{ text: 'OK' }]);
         fetchAvailableMarkers();
       }
     } catch (error) {
@@ -114,22 +99,14 @@ export default function MarkerGeneratorScreen() {
       const email = await AsyncStorage.getItem('userEmail');
       if (!email) return;
 
-      const [availableResponse, statsResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/aruco/available-ids/${email}?limit=50`),
-        axios.get(`${API_URL}/api/aruco/user-markers/${email}`)
+      const [ids, { markers, statistics: stats }] = await Promise.all([
+        getAvailableMarkerIds(email, 50),
+        getUserMarkers(email),
       ]);
 
-      if (availableResponse.data.success) {
-        setAvailableIds(availableResponse.data.available_ids);
-      }
-
-      if (statsResponse.data.success) {
-        setStatistics(statsResponse.data.statistics);
-        // Load saved markers metadata from DB
-        if (statsResponse.data.markers) {
-          setSavedMarkers(statsResponse.data.markers);
-        }
-      }
+      setAvailableIds(ids);
+      if (stats) setStatistics(stats);
+      if (markers) setSavedMarkers(markers);
     } catch (error) {
       console.error('Error fetching available markers:', error);
     } finally {
@@ -141,11 +118,9 @@ export default function MarkerGeneratorScreen() {
   const handlePrintSaved = async (meta: SavedMarkerMeta) => {
     try {
       setPrintingId(meta.marker_id);
-      const response = await axios.get(
-        `${API_URL}/api/aruco/preview/${meta.marker_id}?size_cm=${meta.size_cm}&with_label=true`
-      );
-      if (response.data.image_base64) {
-        await handlePrintMarker(response.data as GeneratedMarker);
+      const marker = await getMarkerPreview(meta.marker_id, meta.size_cm);
+      if (marker.image_base64) {
+        await handlePrintMarker(marker);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to load marker image for printing');

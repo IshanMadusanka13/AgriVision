@@ -11,9 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import axios from 'axios';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.183:8000';
+import { getSessionDetails } from '@/services/api';
 
 export default function SessionDetailsScreen() {
   const router = useRouter();
@@ -29,10 +27,8 @@ export default function SessionDetailsScreen() {
 
   const loadSessionDetails = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/growth/session/${sessionId}`);
-      if (response.data.success) {
-        setSessionData(response.data.analysis);
-      }
+      const analysis = await getSessionDetails(sessionId);
+      setSessionData(analysis);
     } catch (error) {
       console.error('Load session error:', error);
       Alert.alert('Error', 'Failed to load session details');

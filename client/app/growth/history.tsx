@@ -13,26 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.8.183:8000';
-
-interface HistoryItem {
-  id: string;
-  created_at: string;
-  growth_stage: string;
-  nitrogen: number;
-  phosphorus: number;
-  potassium: number;
-  ph: number;
-  temperature: number;
-  location: string;
-  original_image_url: string;
-  annotated_image_url: string;
-  flower_count: number;
-  fruit_count: number;
-  leaf_count: number;
-}
+import { getGrowthHistory, HistoryItem } from '@/services/api';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -66,17 +47,11 @@ export default function HistoryScreen() {
 
   const fetchHistory = async (email: string) => {
     try {
-      const response = await axios.get(`${API_URL}/api/growth/history/${email}`);
-      if (response.data.success) {
-        setHistory(response.data.sessions);
-      }
+      const sessions = await getGrowthHistory(email);
+      setHistory(sessions);
     } catch (error: any) {
       console.error('Fetch history error:', error);
-      if (error.response?.status === 404) {
-        setHistory([]);
-      } else {
-        throw error;
-      }
+      throw error;
     }
   };
 

@@ -15,6 +15,43 @@ export interface DetectionResult {
   plant_id?: number | null;
 }
 
+export interface HistoryItem {
+  id: string;
+  created_at: string;
+  growth_stage: string;
+  nitrogen: number;
+  phosphorus: number;
+  potassium: number;
+  ph: number;
+  temperature: number;
+  location: string;
+  original_image_url: string;
+  annotated_image_url: string;
+  flower_count: number;
+  fruit_count: number;
+  leaf_count: number;
+}
+
+export interface GeneratedMarker {
+  marker_id: number;
+  image_base64: string;
+  size_cm: number;
+  created_at: string;
+}
+
+export interface SavedMarkerMeta {
+  marker_id: number;
+  size_cm: number;
+  status: string;
+  created_at: string;
+}
+
+export interface ArUcoStats {
+  total_generated: number;
+  assigned_to_plants: number;
+  available: number;
+}
+
 interface Detection {
   disease: string;
   confidence: number;
@@ -692,6 +729,75 @@ export const updateRecommendationsMetadata = async (userEmail: string, warnings:
   }
 };
 
+//-------------------------------------------------
+//-------------------Growth History----------------
+//-------------------------------------------------
+export const getGrowthHistory = async (email: string): Promise<HistoryItem[]> => {
+  try {
+    const response = await api.get(`/api/growth/history/${email}`);
+    return response.data.sessions ?? [];
+  } catch (error: any) {
+    if (error.response?.status === 404) return [];
+    return handleApiError(error, 'Growth history');
+  }
+};
+
+export const getSessionDetails = async (sessionId: string): Promise<any> => {
+  try {
+    const response = await api.get(`/api/growth/session/${sessionId}`);
+    return response.data.analysis;
+  } catch (error) {
+    return handleApiError(error, 'Session details');
+  }
+};
+
+//-------------------------------------------------
+//-------------------ArUco Markers-----------------
+//-------------------------------------------------
+export const generateMarkers = async (params: {
+  start_id: number;
+  end_id: number;
+  marker_size_cm: number;
+  with_label: boolean;
+  user_email: string | null;
+}): Promise<{ success: boolean; markers: GeneratedMarker[]; total_generated: number }> => {
+  try {
+    const response = await api.post('/api/aruco/generate', { ...params, save_to_db: true });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Generate markers');
+  }
+};
+
+export const getAvailableMarkerIds = async (email: string, limit = 50): Promise<number[]> => {
+  try {
+    const response = await api.get(`/api/aruco/available-ids/${email}`, { params: { limit } });
+    return response.data.available_ids ?? [];
+  } catch (error) {
+    return handleApiError(error, 'Available marker IDs');
+  }
+};
+
+export const getUserMarkers = async (email: string): Promise<{ markers: SavedMarkerMeta[]; statistics: ArUcoStats }> => {
+  try {
+    const response = await api.get(`/api/aruco/user-markers/${email}`);
+    return { markers: response.data.markers ?? [], statistics: response.data.statistics };
+  } catch (error) {
+    return handleApiError(error, 'User markers');
+  }
+};
+
+export const getMarkerPreview = async (markerId: number, sizeCm: number): Promise<GeneratedMarker> => {
+  try {
+    const response = await api.get(`/api/aruco/preview/${markerId}`, {
+      params: { size_cm: sizeCm, with_label: true },
+    });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Marker preview');
+  }
+};
+
 export default {
   detectPlant,
   getRecommendation,
@@ -709,4 +815,12 @@ export default {
   updateGrowthStageConfigAdmin,
   getRecommendationsMetadata,
   updateRecommendationsMetadata,
+  // growth
+  getGrowthHistory,
+  getSessionDetails,
+  // aruco
+  generateMarkers,
+  getAvailableMarkerIds,
+  getUserMarkers,
+  getMarkerPreview,
 };
