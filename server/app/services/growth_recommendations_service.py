@@ -33,7 +33,7 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     cv2.imwrite(input_path, img)
 
     # Run YOLO model inference
-    results = model.predict(img, conf=0.5)
+    results = model.predict(img, conf=0.2)
 
     counts = {
         "flower": 0,

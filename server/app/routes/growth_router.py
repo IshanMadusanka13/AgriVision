@@ -150,7 +150,7 @@ async def detect_plant(file: UploadFile = File(...)):
             from app.services.plant_tracking_service import PlantTrackingService
             tracking_service = PlantTrackingService(
                 yolo_model_path=None,
-                aruco_marker_size_cm=5.0,
+                aruco_marker_size_cm=3.6,
                 aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL
             )
 
@@ -164,30 +164,69 @@ async def detect_plant(file: UploadFile = File(...)):
 
                 # Calculate plant height if we have leaf detections
                 if counts.leaf > 0:
-                    # Get the highest leaf point from YOLO detections
-                    results = model.predict(img, conf=0.5)
-                    highest_y = None
-                    highest_x = None
+                    # Collect all leaf bounding-box tops from YOLO
+                    results = model.predict(img, conf=0.3)
+                    leaf_tops = []  # (top_y, center_x) per detection
 
                     for result in results:
                         for box in result.boxes:
                             cls_id = int(box.cls[0])
                             label = model.names[cls_id].lower()
-
                             if label == 'leaf':
                                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                                top_y = min(y1, y2)
+                                leaf_tops.append((float(min(y1, y2)), int((x1 + x2) / 2)))
 
-                                if highest_y is None or top_y < highest_y:
-                                    highest_y = top_y
-                                    highest_x = int((x1 + x2) / 2)
+                    highest_y = None
+                    highest_x = None
 
-                    print(f"[ArUco] highest_y={highest_y}, ground_level_y={marker_info['bottom_center'][1]}, pixel_size={marker_info['pixel_size']:.2f}")
+                    if leaf_tops:
+                        # Sort ascending by Y (smallest Y = highest in image)
+                        leaf_tops.sort(key=lambda t: t[0])
+                        # Average the top-3 leaf bbox tops: more stable than
+                        # a single highest edge which can be noisy across frames.
+                        n = min(3, len(leaf_tops))
+                        highest_y = sum(t[0] for t in leaf_tops[:n]) / n
+                        highest_x = int(sum(t[1] for t in leaf_tops[:n]) / n)
+
+                    ground_level_y = marker_info['bottom_center'][1]
+                    ground_level_x = marker_info['bottom_center'][0]
+                    print(f"[ArUco] highest_y={highest_y}, ground_level_y={ground_level_y}, pixel_size={marker_info['pixel_size']:.2f}")
 
                     if highest_y is not None:
-                        ground_level_y = marker_info['bottom_center'][1]
-                        ground_level_x = marker_info['bottom_center'][0]
-                        pixel_ratio = marker_info['pixel_size'] / 5.0
+                        MARKER_CM = 3.6
+
+                        # Perspective correction using the marker's horizontal edges.
+                        # The top and bottom edges of the marker represent the same
+                        # real-world width (MARKER_CM) but appear as different pixel
+                        # widths when the camera is angled.  This slope tells us
+                        # how pixel/cm scale changes with image-Y, so we can
+                        # interpolate an accurate scale at both the plant top and
+                        # ground, then use their average for the height division.
+                        c = marker_info['corners'].astype(float)
+                        by_y = sorted(c, key=lambda p: p[1])
+                        top_two, bot_two = by_y[:2], by_y[2:]
+
+                        top_edge_px = abs(top_two[0][0] - top_two[1][0])
+                        bot_edge_px  = abs(bot_two[0][0]  - bot_two[1][0])
+                        y_top_edge = (top_two[0][1] + top_two[1][1]) / 2
+                        y_bot_edge  = (bot_two[0][1]  + bot_two[1][1]) / 2
+
+                        if top_edge_px >= 5 and bot_edge_px >= 5:
+                            scale_t = top_edge_px / MARKER_CM   # px/cm at marker top
+                            scale_b = bot_edge_px  / MARKER_CM   # px/cm at marker bottom
+                            dy_m    = max(y_bot_edge - y_top_edge, 1.0)
+                            grad    = (scale_b - scale_t) / dy_m  # px/cm per image-Y pixel
+
+                            scale_plant_top = max(scale_t + grad * (highest_y    - y_top_edge), 1.0)
+                            scale_ground    = max(scale_t + grad * (ground_level_y - y_top_edge), 1.0)
+                            pixel_ratio     = (scale_plant_top + scale_ground) / 2
+                            print(f"[ArUco] Perspective: top_edge={top_edge_px:.1f}px "
+                                  f"bot_edge={bot_edge_px:.1f}px grad={grad:.4f} "
+                                  f"scale_top={scale_plant_top:.2f} scale_gnd={scale_ground:.2f}")
+                        else:
+                            # Fallback: vertical pixel size from marker (no perspective)
+                            pixel_ratio = marker_info['pixel_size'] / MARKER_CM
+
                         plant_height_cm = (ground_level_y - highest_y) / pixel_ratio
                         plant_height_cm = round(plant_height_cm, 1)
                         print(f"[ArUco] ✓ Plant height: {plant_height_cm} cm")

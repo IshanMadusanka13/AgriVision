@@ -94,10 +94,12 @@ class PlantTrackingService:
         bottom_center_x = int((bottom_corners[0] + bottom_neighbor[0]) / 2)
         bottom_center_y = int((bottom_corners[1] + bottom_neighbor[1]) / 2)
 
-        # Calculate pixel size (average of marker edges)
-        edge1 = np.linalg.norm(marker_corners[0] - marker_corners[1])
-        edge2 = np.linalg.norm(marker_corners[1] - marker_corners[2])
-        marker_pixel_size = (edge1 + edge2) / 2
+        # Y-component only of vertical edges — removes horizontal tilt error.
+        # np.linalg.norm gives diagonal length (includes dx), abs(dy) gives true
+        # vertical pixel span which directly maps to real-world height.
+        left_v_y  = abs(float(marker_corners[0][1]) - float(marker_corners[3][1]))
+        right_v_y = abs(float(marker_corners[1][1]) - float(marker_corners[2][1]))
+        marker_pixel_size = (left_v_y + right_v_y) / 2
 
         return {
             'plant_id': marker_id,
