@@ -37,7 +37,8 @@ wheels/
 .DS_Store
 Thumbs.db
 
-# YOLO models (can be large)
+# models (can be large)
+.keras/
 
 # Logs
 *.log

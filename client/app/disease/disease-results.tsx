@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,34 +9,218 @@ import {
   Share,
   ActivityIndicator,
   Alert,
+  Dimensions,
+  FlatList,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { predict_disease } from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface Detection {
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// ─────────────────────────────────────────────
+// TYPES — mirrors BE response exactly
+// ─────────────────────────────────────────────
+
+interface Leaf {
+  leaf_id: number;
   disease: string;
   confidence: number;
-  bbox: number[];
   severity: string;
+  bbox: number[];
+  leaf_image: string; // base64 data:image/png;base64,...
 }
 
 interface DiseaseResult {
+  status: string;
   annotated_image?: string;
-  total_detections?: number;
-  detections?: Detection[];
+  total_leaves?: number;
+  leaves?: Leaf[];
   disease_summary?: Record<string, number>;
-  conclusion?: string;
   recommendations?: Record<string, string[]>;
-  status?: string;
-  created_at?: string;
 }
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+const SEVERITY_CONFIG: Record<string, { color: string; bg: string; label: string; dot: string }> = {
+  high:     { color: "#dc2626", bg: "#fef2f2", label: "High",     dot: "#dc2626" },
+  moderate: { color: "#d97706", bg: "#fffbeb", label: "Moderate", dot: "#f59e0b" },
+  low:      { color: "#059669", bg: "#ecfdf5", label: "Low",      dot: "#10b981" },
+  none:     { color: "#2563eb", bg: "#eff6ff", label: "None",     dot: "#3b82f6" },
+};
+
+const DISEASE_COLORS: Record<string, string> = {
+  bacterial_spot:  "#ef4444",
+  cercospora:      "#8b5cf6",
+  healthy:         "#10b981",
+  leaf_curl:       "#f59e0b",
+  powdery_mildew:  "#6366f1",
+};
+
+function getSeverityConfig(sev: string) {
+  return SEVERITY_CONFIG[sev?.toLowerCase()] ?? { color: "#6b7280", bg: "#f9fafb", label: sev ?? "—", dot: "#9ca3af" };
+}
+
+function getDiseaseColor(disease: string) {
+  const key = disease?.toLowerCase().replace(/ /g, "_");
+  return DISEASE_COLORS[key] ?? "#6366f1";
+}
+
+function formatDiseaseName(name: string) {
+  return name?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "—";
+}
+
+// ─────────────────────────────────────────────
+// SUB-COMPONENTS
+// ─────────────────────────────────────────────
+
+function LeafCard({ leaf, index }: { leaf: Leaf; index: number }) {
+  const sev = getSeverityConfig(leaf.severity);
+  const diseaseColor = getDiseaseColor(leaf.disease);
+
+  return (
+    <View style={leafCardStyles.card}>
+      {/* Leaf thumbnail */}
+      <Image
+        source={{ uri: leaf.leaf_image }}
+        style={leafCardStyles.thumbnail}
+        resizeMode="cover"
+      />
+
+      {/* Leaf ID badge */}
+      <View style={[leafCardStyles.idBadge, { backgroundColor: diseaseColor }]}>
+        <Text style={leafCardStyles.idText}>#{leaf.leaf_id}</Text>
+      </View>
+
+      {/* Info */}
+      <View style={leafCardStyles.info}>
+        <Text style={[leafCardStyles.diseaseName, { color: diseaseColor }]} numberOfLines={1}>
+          {formatDiseaseName(leaf.disease)}
+        </Text>
+
+        {/* Confidence bar */}
+        <View style={leafCardStyles.confRow}>
+          <Text style={leafCardStyles.confLabel}>Confidence</Text>
+          <Text style={[leafCardStyles.confValue, { color: diseaseColor }]}>
+            {leaf.confidence}%
+          </Text>
+        </View>
+        <View style={leafCardStyles.confBarBg}>
+          <View
+            style={[
+              leafCardStyles.confBarFill,
+              { width: `${leaf.confidence}%` as any, backgroundColor: diseaseColor },
+            ]}
+          />
+        </View>
+
+        {/* Severity pill */}
+        <View style={[leafCardStyles.sevPill, { backgroundColor: sev.bg }]}>
+          <View style={[leafCardStyles.sevDot, { backgroundColor: sev.dot }]} />
+          <Text style={[leafCardStyles.sevText, { color: sev.color }]}>{sev.label}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const leafCardStyles = StyleSheet.create({
+  card: {
+    width: (SCREEN_WIDTH - 48) / 2,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  thumbnail: {
+    width: "100%",
+    height: 130,
+    backgroundColor: "#f3f4f6",
+  },
+  idBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  idText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  info: {
+    padding: 12,
+  },
+  diseaseName: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  confRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  confLabel: {
+    fontSize: 11,
+    color: "#9ca3af",
+    fontWeight: "500",
+  },
+  confValue: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  confBarBg: {
+    height: 5,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  confBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  sevPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 5,
+  },
+  sevDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  sevText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+});
+
+// ─────────────────────────────────────────────
+// MAIN SCREEN
+// ─────────────────────────────────────────────
 
 export default function DiseaseResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { imageUri, saveToDb } = params;
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DiseaseResult | null>(null);
@@ -52,38 +236,31 @@ export default function DiseaseResultsScreen() {
       try {
         setLoading(true);
         setError(null);
-        
-        // Get user email from storage if saving to DB
+
         let userEmail = null;
         const shouldSave = saveToDb === "true";
-        
+
         if (shouldSave) {
           userEmail = await AsyncStorage.getItem("userEmail");
           if (!userEmail) {
-            Alert.alert(
-              "Authentication Required",
-              "Please log in to save scan history",
-              [{ text: "OK" }]
-            );
+            Alert.alert("Authentication Required", "Please log in to save scan history");
           }
         }
-        
-        // Call the updated API with new parameters
+
         const analysisResult = await predict_disease(
           imageUri as string,
           userEmail,
           shouldSave
         );
-        
+
         if (analysisResult.status === "no_leaf_detected") {
-          setError("No plant leaf detected in the image. Please try again with a clearer image of the affected area.");
+          setError("No plant leaf detected. Please try again with a clearer image of the affected area.");
           setLoading(false);
           return;
         }
 
         setResult(analysisResult);
       } catch (err: any) {
-        console.error("Analysis error:", err);
         setError(err.message || "Failed to analyze image. Please try again.");
       } finally {
         setLoading(false);
@@ -93,120 +270,88 @@ export default function DiseaseResultsScreen() {
     analyzeImage();
   }, [imageUri, saveToDb]);
 
-  const getSeverityColor = (sev: string) => {
-    switch (sev?.toLowerCase()) {
-      case "high": return "#dc2626";
-      case "moderate": return "#f59e0b";
-      case "low": return "#10b981";
-      case "none": return "#3b82f6";
-      default: return "#6b7280";
-    }
-  };
-
-  const getSeverityIcon = (sev: string) => {
-    switch (sev?.toLowerCase()) {
-      case "high": return "⚠️";
-      case "moderate": return "⚡";
-      case "low": return "✓";
-      case "none": return "✅";
-      default: return "ℹ️";
-    }
-  };
-
-  const handleShare = async () => {
-    if (!result) return;
-    
-    try {
-      const diseaseSummary = result.disease_summary 
-        ? Object.entries(result.disease_summary)
-            .map(([disease, count]) => `${disease}: ${count}`)
-            .join("\n• ")
-        : "";
-      
-      // Format recommendations by disease type
-      let recommendationsText = "";
-      if (result.recommendations) {
-        recommendationsText = Object.entries(result.recommendations)
-          .map(([disease, recs]) => {
-            return `\n${disease}:\n• ${recs.join("\n• ")}`;
-          })
-          .join("\n");
-      }
-      
-      await Share.share({
-        message: `🔬 Disease Detection Results\n\n` +
-                 `Total Detections: ${result.total_detections}\n` +
-                 `Disease Summary:\n• ${diseaseSummary}\n\n` +
-                 `Conclusion: ${result.conclusion}\n\n` +
-                 `Recommendations:${recommendationsText}`,
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleRetry = () => {
-    router.back();
-  };
-
+  // ── Loading ──────────────────────────────────
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#ef4444" />
-        <Text style={styles.loadingText}>Analyzing image...</Text>
-        <Text style={styles.loadingSubtext}>Detecting all disease instances</Text>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="large" color="#10b981" />
+          <Text style={styles.loadingTitle}>Analyzing Plant</Text>
+          <Text style={styles.loadingSubtext}>
+            Running YOLO detection + EfficientNet classification…
+          </Text>
+          <View style={styles.loadingSteps}>
+            {["Detecting leaves", "Classifying diseases", "Fetching treatments"].map((step, i) => (
+              <View key={i} style={styles.loadingStep}>
+                <View style={[styles.stepDot, { backgroundColor: "#10b981" }]} />
+                <Text style={styles.stepText}>{step}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
     );
   }
 
+  // ── Error ────────────────────────────────────
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorTitle}>Analysis Failed</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.primaryButton]} 
-          onPress={handleRetry}
-        >
-          <Text style={styles.buttonIcon}>🔄</Text>
-          <Text style={[styles.buttonText, styles.primaryButtonText]}>
-            Try Again
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => router.push("/")}
-        >
-          <Text style={styles.buttonIcon}>🏠</Text>
-          <Text style={styles.buttonText}>Back to Home</Text>
-        </TouchableOpacity>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorEmoji}>🌿</Text>
+          <Text style={styles.errorTitle}>Scan Failed</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => router.back()}>
+            <Text style={styles.retryBtnText}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.homeLink} onPress={() => router.push("/")}>
+            <Text style={styles.homeLinkText}>← Back to Home</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
-  if (!result) {
-    return null;
-  }
+  if (!result) return null;
 
-  const mostSevereDetection = result.detections?.reduce((prev, current) => {
-    const severityOrder = { High: 3, Moderate: 2, Low: 1, None: 0 };
-    const prevScore = severityOrder[prev.severity as keyof typeof severityOrder] || 0;
-    const currentScore = severityOrder[current.severity as keyof typeof severityOrder] || 0;
-    return currentScore > prevScore ? current : prev;
-  }, result.detections[0]);
+  const leaves = result.leaves ?? [];
+  const diseaseSummary = result.disease_summary ?? {};
+  const recommendations = result.recommendations ?? {};
+  const hasRecommendations = Object.keys(recommendations).length > 0;
+
+  // Dominant disease (highest count)
+  const dominantDisease = Object.entries(diseaseSummary).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const isAllHealthy = dominantDisease === "healthy" || (Object.keys(diseaseSummary).length === 1 && diseaseSummary["healthy"]);
+
+  // Share handler
+  const handleShare = async () => {
+    const summaryLines = Object.entries(diseaseSummary)
+      .map(([d, c]) => `  • ${formatDiseaseName(d)}: ${c} leaf${c > 1 ? "s" : ""}`)
+      .join("\n");
+    const recLines = Object.entries(recommendations)
+      .map(([d, recs]) => `${formatDiseaseName(d)}:\n${recs.map((r) => `  • ${r}`).join("\n")}`)
+      .join("\n\n");
+
+    await Share.share({
+      message:
+        `🌿 Plant Disease Scan Results\n\n` +
+        `Total Leaves Scanned: ${result.total_leaves}\n\n` +
+        `Disease Breakdown:\n${summaryLines}\n\n` +
+        (recLines ? `Treatment Recommendations:\n${recLines}` : ""),
+    }).catch(console.error);
+  };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>🔬 Analysis Results</Text>
-        {result.total_detections && result.total_detections > 0 && (
-          <Text style={styles.headerSubtitle}>
-            {result.total_detections} detection{result.total_detections > 1 ? 's' : ''} found
-          </Text>
-        )}
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* ── HEADER ── */}
+      <View style={[styles.header, { backgroundColor: isAllHealthy ? "#064e3b" : "#1c1917" }]}>
+        <Text style={styles.headerEyebrow}>SCAN COMPLETE</Text>
+        <Text style={styles.headerTitle}>
+          {isAllHealthy ? "Plant is Healthy ✓" : `${formatDiseaseName(dominantDisease ?? "")} Detected`}
+        </Text>
+        <Text style={styles.headerSubtitle}>
+          {result.total_leaves} leaf{(result.total_leaves ?? 0) > 1 ? "s" : ""} analysed
+        </Text>
         {saveToDb === "true" && (
           <View style={styles.savedBadge}>
             <Text style={styles.savedBadgeText}>✓ Saved to History</Text>
@@ -214,502 +359,435 @@ export default function DiseaseResultsScreen() {
         )}
       </View>
 
-      <View style={styles.imageContainer}>
-        <Image 
-          source={{ uri: result.annotated_image || imageUri as string }} 
-          style={styles.image}
-          resizeMode="contain"
-        />
-      </View>
-
-      {result.conclusion && (
-        <View style={styles.conclusionCard}>
-          <Text style={styles.conclusionIcon}>📋</Text>
-          <Text style={styles.conclusionText}>{result.conclusion}</Text>
+      {/* ── ANNOTATED IMAGE ── */}
+      {result.annotated_image && (
+        <View style={styles.imageWrapper}>
+          <Image
+            source={{ uri: result.annotated_image }}
+            style={styles.annotatedImage}
+            resizeMode="contain"
+          />
+          <View style={styles.imageCaption}>
+            <Text style={styles.imageCaptionText}>↑ Leaf detection overlay</Text>
+          </View>
         </View>
       )}
 
-      <View style={styles.resultsCard}>
-        <Text style={styles.cardTitle}>Summary</Text>
-        
-        {mostSevereDetection && (
-          <>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Primary Disease:</Text>
-              <Text style={styles.resultValue}>{mostSevereDetection.disease}</Text>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Confidence:</Text>
-              <View style={styles.confidenceContainer}>
-                <Text style={styles.resultValue}>{mostSevereDetection.confidence}%</Text>
-                <View style={styles.confidenceBar}>
-                  <View 
-                    style={[
-                      styles.confidenceFill, 
-                      { width: `${mostSevereDetection.confidence}%` }
-                    ]} 
-                  />
+      {/* ── DISEASE SUMMARY PILLS ── */}
+      {Object.keys(diseaseSummary).length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Disease Breakdown</Text>
+          <View style={styles.pillRow}>
+            {Object.entries(diseaseSummary).map(([disease, count]) => {
+              const color = getDiseaseColor(disease);
+              return (
+                <View key={disease} style={[styles.diseasePill, { borderColor: color }]}>
+                  <View style={[styles.pillDot, { backgroundColor: color }]} />
+                  <Text style={[styles.pillDisease, { color }]}>
+                    {formatDiseaseName(disease)}
+                  </Text>
+                  <View style={[styles.pillCountBadge, { backgroundColor: color }]}>
+                    <Text style={styles.pillCount}>{count}</Text>
+                  </View>
                 </View>
-              </View>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Severity:</Text>
-              <View style={styles.severityContainer}>
-                <Text style={styles.severityIcon}>
-                  {getSeverityIcon(mostSevereDetection.severity)}
-                </Text>
-                <Text 
-                  style={[
-                    styles.resultValue, 
-                    { color: getSeverityColor(mostSevereDetection.severity) }
-                  ]}
-                >
-                  {mostSevereDetection.severity}
-                </Text>
-              </View>
-            </View>
-          </>
-        )}
-      </View>
-
-      {result.disease_summary && Object.keys(result.disease_summary).length > 0 && (
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardTitle}>Disease Breakdown</Text>
-          {Object.entries(result.disease_summary).map(([disease, count], index) => (
-            <View key={index} style={styles.summaryItem}>
-              <Text style={styles.summaryDisease}>{disease}</Text>
-              <View style={styles.summaryBadge}>
-                <Text style={styles.summaryCount}>{count}</Text>
-              </View>
-            </View>
-          ))}
+              );
+            })}
+          </View>
         </View>
       )}
 
-      {result.detections && result.detections.length > 0 && (
-        <View style={styles.detectionsCard}>
-          <Text style={styles.cardTitle}>All Detections</Text>
-          {result.detections.map((detection, index) => (
-            <View key={index} style={styles.detectionItem}>
-              <View style={styles.detectionHeader}>
-                <Text style={styles.detectionNumber}>#{index + 1}</Text>
-                <Text style={styles.detectionDisease}>{detection.disease}</Text>
-                <View style={[
-                  styles.severityBadge,
-                  { backgroundColor: getSeverityColor(detection.severity) }
-                ]}>
-                  <Text style={styles.severityBadgeText}>
-                    {detection.severity}
+      {/* ── INDIVIDUAL LEAF CARDS ── */}
+      {leaves.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Leaf-by-Leaf Results
+          </Text>
+          <View style={styles.leafGrid}>
+            {leaves.map((leaf, i) => (
+              <LeafCard key={leaf.leaf_id} leaf={leaf} index={i} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* ── RECOMMENDATIONS ── */}
+      {hasRecommendations && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Treatment Recommendations</Text>
+          {Object.entries(recommendations).map(([disease, recs]) => {
+            const color = getDiseaseColor(disease);
+            return (
+              <View key={disease} style={[styles.recCard, { borderLeftColor: color }]}>
+                <View style={styles.recCardHeader}>
+                  <View style={[styles.recDot, { backgroundColor: color }]} />
+                  <Text style={[styles.recCardTitle, { color }]}>
+                    {formatDiseaseName(disease)}
                   </Text>
                 </View>
+                {recs.map((rec, i) => (
+                  <View key={i} style={styles.recItem}>
+                    <Text style={[styles.recBullet, { color }]}>›</Text>
+                    <Text style={styles.recText}>{rec}</Text>
+                  </View>
+                ))}
               </View>
-              <View style={styles.detectionConfidence}>
-                <Text style={styles.detectionConfidenceLabel}>Confidence:</Text>
-                <Text style={styles.detectionConfidenceValue}>
-                  {detection.confidence}%
-                </Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
-      {result.recommendations && Object.keys(result.recommendations).length > 0 && (
-        <View style={styles.recommendationsCard}>
-          <Text style={styles.recommendationsTitle}>
-            💡 Treatment Recommendations
-          </Text>
-          {Object.entries(result.recommendations).map(([disease, recs], diseaseIndex) => (
-            <View key={diseaseIndex} style={styles.diseaseRecommendationSection}>
-              <Text style={styles.diseaseRecommendationTitle}>{disease}</Text>
-              {recs.map((rec: string, recIndex: number) => (
-                <View key={recIndex} style={styles.recommendationItem}>
-                  <Text style={styles.recommendationBullet}>•</Text>
-                  <Text style={styles.recommendationText}>{rec}</Text>
-                </View>
-              ))}
-            </View>
-          ))}
+      {/* ── ACTIONS ── */}
+      <View style={styles.actionSection}>
+        <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+          <Text style={styles.shareBtnText}>Share Results</Text>
+        </TouchableOpacity>
+
+        <View style={styles.secondaryActions}>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.back()}>
+            <Text style={styles.secondaryBtnText}>Scan Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/")}>
+            <Text style={styles.secondaryBtnText}>Home</Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={[styles.button, styles.primaryButton]} 
-          onPress={handleShare}
-        >
-          <Text style={styles.buttonIcon}>📤</Text>
-          <Text style={[styles.buttonText, styles.primaryButtonText]}>
-            Share Results
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => router.back()}
-        >
-          <Text style={styles.buttonIcon}>🔄</Text>
-          <Text style={styles.buttonText}>Analyze Another</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => router.push("/")}
-        >
-          <Text style={styles.buttonIcon}>🏠</Text>
-          <Text style={styles.buttonText}>Back to Home</Text>
-        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
+// ─────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb" },
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f0",
+  },
+
+  // ── Loading ──────────────────────────────────
   centerContainer: {
     flex: 1,
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#f5f5f0",
     justifyContent: "center",
     alignItems: "center",
-    padding: 32,
+    padding: 24,
   },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1f2937",
-    marginTop: 16,
+  loadingCard: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 32,
+    alignItems: "center",
+    width: "100%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  loadingTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1c1917",
+    marginTop: 20,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   loadingSubtext: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 8,
+    fontSize: 13,
+    color: "#78716c",
     textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
   },
-  errorIcon: {
-    fontSize: 64,
+  loadingSteps: {
+    width: "100%",
+    gap: 10,
+  },
+  loadingStep: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  stepText: {
+    fontSize: 14,
+    color: "#57534e",
+    fontWeight: "500",
+  },
+
+  // ── Error ────────────────────────────────────
+  errorCard: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 32,
+    alignItems: "center",
+    width: "100%",
+  },
+  errorEmoji: {
+    fontSize: 56,
     marginBottom: 16,
   },
   errorTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
     color: "#dc2626",
-    marginBottom: 12,
-    textAlign: "center",
+    marginBottom: 8,
   },
   errorMessage: {
-    fontSize: 16,
-    color: "#6b7280",
+    fontSize: 14,
+    color: "#78716c",
     textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 24,
+    lineHeight: 22,
+    marginBottom: 28,
   },
-  header: { 
-    padding: 20, 
-    backgroundColor: "#fff", 
-    borderBottomWidth: 1, 
-    borderBottomColor: "#e5e7eb" 
+  retryBtn: {
+    backgroundColor: "#10b981",
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 14,
   },
-  headerTitle: { 
-    fontSize: 24, 
-    fontWeight: "700", 
-    color: "#1f2937", 
-    textAlign: "center" 
+  retryBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  homeLink: { padding: 8 },
+  homeLinkText: {
+    fontSize: 14,
+    color: "#78716c",
+    fontWeight: "500",
+  },
+
+  // ── Header ───────────────────────────────────
+  header: {
+    paddingTop: 56,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
+  },
+  headerEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#6ee7b7",
+    letterSpacing: 2.5,
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: -0.8,
+    marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
-    textAlign: "center",
-    marginTop: 4,
+    fontSize: 15,
+    color: "#a8a29e",
+    marginBottom: 12,
   },
   savedBadge: {
-    backgroundColor: "#d1fae5",
+    alignSelf: "flex-start",
+    backgroundColor: "#064e3b",
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 12,
-    alignSelf: "center",
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#6ee7b7",
+    marginTop: 4,
   },
   savedBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#065f46",
+    color: "#6ee7b7",
   },
-  imageContainer: {
+
+  // ── Annotated image ──────────────────────────
+  imageWrapper: {
     margin: 16,
+    marginTop: -1,
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  image: { width: "100%", height: 400 },
-  conclusionCard: {
-    margin: 16,
-    marginBottom: 8,
-    backgroundColor: "#eff6ff",
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
-    flexDirection: "row",
-    alignItems: "center",
+  annotatedImage: {
+    width: "100%",
+    height: 280,
+    backgroundColor: "#f3f4f6",
   },
-  conclusionIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  imageCaption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#fafaf9",
+    borderTopWidth: 1,
+    borderTopColor: "#f0efed",
   },
-  conclusionText: {
-    flex: 1,
-    fontSize: 15,
-    color: "#1e40af",
-    fontWeight: "600",
-    lineHeight: 22,
+  imageCaptionText: {
+    fontSize: 12,
+    color: "#a8a29e",
+    fontWeight: "500",
+    letterSpacing: 0.3,
   },
-  resultsCard: {
-    margin: 16,
-    marginBottom: 8,
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1f2937",
+
+  // ── Section ──────────────────────────────────
+  section: {
+    marginHorizontal: 16,
     marginBottom: 16,
   },
-  resultRow: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1c1917",
+    letterSpacing: -0.3,
+    marginBottom: 12,
+  },
+
+  // ── Disease pills ────────────────────────────
+  pillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  diseasePill: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  resultLabel: { 
-    fontSize: 16, 
-    fontWeight: "600", 
-    color: "#6b7280",
-    flex: 1,
-  },
-  resultValue: { 
-    fontSize: 16, 
-    fontWeight: "700", 
-    color: "#1f2937",
-    textAlign: "right",
-  },
-  confidenceContainer: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  confidenceBar: {
-    width: "100%",
-    height: 8,
-    backgroundColor: "#e5e7eb",
-    borderRadius: 4,
-    marginTop: 4,
-    overflow: "hidden",
-  },
-  confidenceFill: {
-    height: "100%",
-    backgroundColor: "#10b981",
+  pillDot: {
+    width: 7,
+    height: 7,
     borderRadius: 4,
   },
-  severityContainer: {
+  pillDisease: {
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.1,
+  },
+  pillCountBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  pillCount: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
+  },
+
+  // ── Leaf grid ────────────────────────────────
+  leafGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  // ── Recommendations ──────────────────────────
+  recCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  recCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    marginBottom: 10,
   },
-  severityIcon: {
-    fontSize: 20,
+  recDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
-  summaryCard: {
-    margin: 16,
-    marginTop: 8,
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
-  },
-  summaryDisease: {
+  recCardTitle: {
     fontSize: 15,
-    color: "#374151",
-    flex: 1,
-  },
-  summaryBadge: {
-    backgroundColor: "#3b82f6",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    minWidth: 32,
-    alignItems: "center",
-  },
-  summaryCount: {
-    fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
+    letterSpacing: 0.1,
   },
-  detectionsCard: {
-    margin: 16,
-    marginTop: 8,
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  detectionItem: {
-    backgroundColor: "#f9fafb",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  detectionHeader: {
+  recItem: {
     flexDirection: "row",
-    alignItems: "center",
+    gap: 8,
     marginBottom: 6,
+    paddingLeft: 4,
   },
-  detectionNumber: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#6b7280",
-    backgroundColor: "#e5e7eb",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  detectionDisease: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1f2937",
-    flex: 1,
-  },
-  severityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  severityBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  detectionConfidence: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  detectionConfidenceLabel: {
-    fontSize: 13,
-    color: "#6b7280",
-  },
-  detectionConfidenceValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#10b981",
-  },
-  recommendationsCard: {
-    margin: 16,
-    marginTop: 8,
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  recommendationsTitle: {
+  recBullet: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#1f2937",
-    marginBottom: 16,
+    lineHeight: 22,
   },
-  diseaseRecommendationSection: {
-    marginBottom: 16,
-  },
-  diseaseRecommendationTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  recommendationItem: {
-    flexDirection: "row",
-    marginBottom: 8,
-    paddingLeft: 8,
-  },
-  recommendationBullet: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#10b981",
-    marginRight: 12,
-    marginTop: 2,
-  },
-  recommendationText: {
+  recText: {
     flex: 1,
     fontSize: 14,
-    color: "#374151",
-    lineHeight: 20,
+    color: "#44403c",
+    lineHeight: 21,
   },
-  buttonContainer: { 
-    padding: 16, 
-    gap: 12, 
-    marginBottom: 32 
-  },
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
+
+  // ── Action buttons ───────────────────────────
+  actionSection: {
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#e5e7eb",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingBottom: 40,
+    gap: 10,
   },
-  primaryButton: { 
-    backgroundColor: "#10b981", 
-    borderColor: "#10b981" 
+  shareBtn: {
+    backgroundColor: "#10b981",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#10b981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  buttonIcon: { fontSize: 24, marginRight: 8 },
-  buttonText: { 
-    fontSize: 16, 
-    fontWeight: "600", 
-    color: "#374151" 
+  shareBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.3,
   },
-  primaryButtonText: { color: "#fff" },
+  secondaryActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  secondaryBtn: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#e7e5e4",
+  },
+  secondaryBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#44403c",
+  },
 });
