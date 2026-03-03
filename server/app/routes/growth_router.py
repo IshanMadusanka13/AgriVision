@@ -369,7 +369,7 @@ async def full_analysis(
         if img is None:
             raise HTTPException(status_code=400, detail="Failed to read image file.")
 
-        growth_stage_key, confidence, counts, debug_image_path, _ = determine_growth_stage(img, model)
+        growth_stage_key, confidence, counts, debug_image_path, annotated_img_fa = determine_growth_stage(img, model)
 
         annotated_image_path = debug_image_path if debug_image_path else None
 
@@ -382,6 +382,51 @@ async def full_analysis(
             "unknown": "Not a Scotch Bonnet plant"
         }
         growth_stage = stage_map.get(growth_stage_key, "Unknown Stage")
+
+        # ArUco-based plant ID + height measurement (same logic as /detect)
+        fa_plant_id = None
+        fa_plant_height_cm = None
+        try:
+            from app.services.plant_tracking_service import PlantTrackingService
+            _tracking = PlantTrackingService(
+                yolo_model_path=None,
+                aruco_marker_size_cm=3.6,
+                aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL
+            )
+            fa_marker = _tracking.detect_aruco_marker(img)
+            if fa_marker and counts.leaf > 0:
+                fa_plant_id = fa_marker['plant_id']
+                fa_results = model.predict(img, conf=0.3)
+                fa_leaf_tops = []
+                for r in fa_results:
+                    for box in r.boxes:
+                        if model.names[int(box.cls[0])].lower() == 'leaf':
+                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                            fa_leaf_tops.append((float(min(y1, y2)), int((x1 + x2) / 2)))
+                if fa_leaf_tops:
+                    fa_leaf_tops.sort(key=lambda t: t[0])
+                    n = min(3, len(fa_leaf_tops))
+                    fa_highest_y = sum(t[0] for t in fa_leaf_tops[:n]) / n
+                    fa_ground_y  = fa_marker['bottom_center'][1]
+                    fa_c = fa_marker['corners'].astype(float)
+                    fa_by_y = sorted(fa_c, key=lambda p: p[1])
+                    fa_top2, fa_bot2 = fa_by_y[:2], fa_by_y[2:]
+                    fa_top_px = abs(fa_top2[0][0] - fa_top2[1][0])
+                    fa_bot_px = abs(fa_bot2[0][0] - fa_bot2[1][0])
+                    fa_y_top  = (fa_top2[0][1] + fa_top2[1][1]) / 2
+                    fa_y_bot  = (fa_bot2[0][1] + fa_bot2[1][1]) / 2
+                    if fa_top_px >= 5 and fa_bot_px >= 5:
+                        st = fa_top_px / 3.6
+                        sb = fa_bot_px / 3.6
+                        g  = (sb - st) / max(fa_y_bot - fa_y_top, 1.0)
+                        pr = (max(st + g * (fa_highest_y - fa_y_top), 1.0) +
+                              max(st + g * (fa_ground_y  - fa_y_top), 1.0)) / 2
+                    else:
+                        pr = fa_marker['pixel_size'] / 3.6
+                    fa_plant_height_cm = round((fa_ground_y - fa_highest_y) / pr, 1)
+                    print(f"[full_analysis] plant_id={fa_plant_id} height={fa_plant_height_cm}cm")
+        except Exception as aruco_err:
+            print(f"[full_analysis] ArUco skipped: {aruco_err}")
 
         from pydantic import BaseModel
         class DetectionResult(BaseModel):
@@ -487,7 +532,9 @@ async def full_analysis(
                         "flower_count": detection.flowers_count,
                         "fruit_count": detection.fruits_count,
                         "leaf_count": detection.leaves_count,
-                        "ripening_count": 0
+                        "ripening_count": 0,
+                        "plant_id": fa_plant_id,
+                        "plant_height_cm": fa_plant_height_cm,
                     }
 
                     growth_rec_dict = {
@@ -498,12 +545,10 @@ async def full_analysis(
 
                     session_id = supabase_service.save_complete_analysis(
                         user_id=user_id,
-                        npk_data=None,  # No NPK data anymore
                         environmental_data=environmental_data,
                         image_urls=image_urls,
                         growth_stage_data=growth_stage_data,
                         weather_forecast=weather_forecast_data,
-                        npk_status=None,  # No NPK status anymore
                         fertilizer_recommendation=growth_rec_dict
                     )
 
@@ -560,6 +605,57 @@ async def get_user_history(user_email: str):
     except Exception as e:
         print(f"History fetch error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+
+
+class SavePlantStartDateRequest(BaseModel):
+    email: str
+    marker_id: int
+    start_date: str  # YYYY-MM-DD
+
+
+@router.post("/plant")
+async def save_plant_start_date(data: SavePlantStartDateRequest):
+    """Save planting start date against an existing ArUco marker (plant age calculation)"""
+    try:
+        user = supabase_service.get_user_by_email(data.email)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        result = supabase_service.save_plant_start_date(user["id"], data.marker_id, data.start_date)
+        return {"success": True, "plant": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save plant: {str(e)}")
+
+
+@router.get("/plant/{user_email}/{marker_id}")
+async def get_plant_start_date(user_email: str, marker_id: int):
+    """Get start_date for a specific plant (marker)"""
+    try:
+        user = supabase_service.get_user_by_email(user_email)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        plant = supabase_service.get_plant_start_date(user["id"], marker_id)
+        return {"success": True, "plant": plant}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get plant: {str(e)}")
+
+
+@router.get("/plants/{user_email}")
+async def get_all_plants(user_email: str):
+    """Get all plants (markers with start_date set) for a user"""
+    try:
+        user = supabase_service.get_user_by_email(user_email)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        plants = supabase_service.get_all_plant_start_dates(user["id"])
+        return {"success": True, "plants": plants}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get plants: {str(e)}")
 
 
 @router.get("/session/{session_id}")

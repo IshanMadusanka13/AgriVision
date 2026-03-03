@@ -41,7 +41,7 @@ export default function MarkerGeneratorScreen() {
     available: 0,
   });
   const [showAvailableIds, setShowAvailableIds] = useState(true);
-  const [showSavedMarkers, setShowSavedMarkers] = useState(true);
+  const [showSavedMarkers, setShowSavedMarkers] = useState(false);
 
   const handleGenerateMarkers = async () => {
     const start = parseInt(startId);

@@ -46,6 +46,8 @@ class SupabaseService:
         leaf_count: int = 0,
         ripening_count: int = 0,
         current_weather: Optional[str] = None,
+        plant_id: Optional[int] = None,
+        plant_height_cm: Optional[float] = None,
     ) -> Dict:
 
         session_data = {
@@ -65,6 +67,8 @@ class SupabaseService:
             "leaf_count": leaf_count,
             "ripening_count": ripening_count,
             "current_weather": current_weather,
+            "plant_id": plant_id,
+            "plant_height_cm": plant_height_cm,
         }
 
         response = (
@@ -237,12 +241,10 @@ class SupabaseService:
     def save_complete_analysis(
         self,
         user_id: str,
-        npk_data: Dict,
         environmental_data: Dict,
         image_urls: Dict,
         growth_stage_data: Dict,
         weather_forecast: List[Dict],
-        npk_status: Dict,
         fertilizer_recommendation: Dict,
     ) -> str:
 
@@ -263,14 +265,14 @@ class SupabaseService:
             leaf_count=growth_stage_data.get("leaf_count", 0),
             ripening_count=growth_stage_data.get("ripening_count", 0),
             current_weather=environmental_data.get("current_weather"),
+            plant_id=growth_stage_data.get("plant_id"),
+            plant_height_cm=growth_stage_data.get("plant_height_cm"),
         )
 
         session_id = session["id"]
 
         if weather_forecast:
             self.save_weather_forecast(session_id, weather_forecast)
-
-        # NPK status no longer saved
 
         if fertilizer_recommendation:
             week_plan = fertilizer_recommendation.get("week_plan", [])
@@ -618,6 +620,42 @@ class SupabaseService:
         )
         return response.data[0] if response.data else None
 
+
+    # ==================== Plant Start Date (stored in aruco_markers) ====================
+
+    def get_plant_start_date(self, user_id: str, marker_id: int) -> Optional[Dict]:
+        """Get a marker record including start_date for plant age calculation"""
+        response = (
+            self.client.table("aruco_markers")
+            .select("marker_id, start_date, status, assigned_to_plant")
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+    def get_all_plant_start_dates(self, user_id: str) -> List[Dict]:
+        """Get all markers that have a start_date set"""
+        response = (
+            self.client.table("aruco_markers")
+            .select("marker_id, start_date, status, assigned_to_plant")
+            .eq("user_id", user_id)
+            .not_.is_("start_date", "null")
+            .order("marker_id")
+            .execute()
+        )
+        return response.data or []
+
+    def save_plant_start_date(self, user_id: str, marker_id: int, start_date: str) -> Dict:
+        """Set the start_date on an existing aruco_marker record"""
+        response = (
+            self.client.table("aruco_markers")
+            .update({"start_date": start_date, "assigned_to_plant": True})
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .execute()
+        )
+        return response.data[0] if response.data else {}
 
     def get_marker_statistics(self, user_id: str) -> Dict:
         """Get marker usage statistics for a user"""

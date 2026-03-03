@@ -19,9 +19,6 @@ export interface HistoryItem {
   id: string;
   created_at: string;
   growth_stage: string;
-  nitrogen: number;
-  phosphorus: number;
-  potassium: number;
   ph: number;
   temperature: number;
   location: string;
@@ -30,6 +27,8 @@ export interface HistoryItem {
   flower_count: number;
   fruit_count: number;
   leaf_count: number;
+  plant_id?: number | null;
+  plant_height_cm?: number | null;
 }
 
 export interface GeneratedMarker {
@@ -140,12 +139,6 @@ export interface GrowthStageConfig {
   max_flowers: number;
   min_fruits: number;
   max_fruits: number;
-  nitrogen_min: number;
-  nitrogen_max: number;
-  phosphorus_min: number;
-  phosphorus_max: number;
-  potassium_min: number;
-  potassium_max: number;
 }
 
 export interface DashboardStats {
@@ -749,6 +742,49 @@ export const getSessionDetails = async (sessionId: string): Promise<any> => {
     return response.data.analysis;
   } catch (error) {
     return handleApiError(error, 'Session details');
+  }
+};
+
+// ── Plant start-date (stored in aruco_markers table) ──────────────────────────
+export interface PlantInfo {
+  marker_id: number;
+  start_date: string | null;
+  status?: string;
+  assigned_to_plant?: boolean;
+}
+
+export const savePlantStartDate = async (
+  email: string,
+  markerId: number,
+  startDate: string,
+): Promise<void> => {
+  try {
+    await api.post('/api/growth/plant', { email, marker_id: markerId, start_date: startDate });
+  } catch (error) {
+    return handleApiError(error, 'Save plant start date');
+  }
+};
+
+export const getPlantInfo = async (
+  email: string,
+  markerId: number,
+): Promise<PlantInfo | null> => {
+  try {
+    const response = await api.get(`/api/growth/plant/${encodeURIComponent(email)}/${markerId}`);
+    return response.data.plant ?? null;
+  } catch (error: any) {
+    if (error.response?.status === 404) return null;
+    return handleApiError(error, 'Get plant info');
+  }
+};
+
+export const getPlantsInfo = async (email: string): Promise<PlantInfo[]> => {
+  try {
+    const response = await api.get(`/api/growth/plants/${encodeURIComponent(email)}`);
+    return response.data.plants ?? [];
+  } catch (error: any) {
+    if (error.response?.status === 404) return [];
+    return handleApiError(error, 'Get plants info');
   }
 };
 
