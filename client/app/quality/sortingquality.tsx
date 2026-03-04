@@ -438,7 +438,6 @@ export default function SortingQuality() {
           </View>
         )}
       </View>
-
       {/* Summary */}
       <View style={styles.summaryBox}>
         <Text style={styles.summaryTitle}>Summary</Text>
