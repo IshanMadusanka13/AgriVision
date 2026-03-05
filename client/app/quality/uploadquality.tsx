@@ -103,7 +103,7 @@ export default function UploadQuality() {
         )}
       </View>
 
-      {/* Toggle: Use first image only */}
+    
       
 
       {/* Buttons */}

@@ -28,6 +28,8 @@ export default function gradingquality() {
   const [result, setResult] = useState<any>(null);
   const [expandedUsage, setExpandedUsage] = useState<string | null>(null);
   const [infoVisible, setInfoVisible] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
 
   const imgArray = JSON.parse(images as string);
   const firstImageUri = imgArray[0];
@@ -45,7 +47,25 @@ export default function gradingquality() {
     upload();
   }, []);
 
-  /* ✅ ONLY LOADING SCREEN CHANGE */
+  // Handle navigation with delay for data serialization
+  useEffect(() => {
+    if (navigating && result) {
+      const timer = setTimeout(() => {
+        router.push({
+          pathname: "/quality/sortingquality",
+          params: {
+            result: JSON.stringify(result),
+            images: JSON.stringify(imgArray),
+          },
+        });
+        // Reset navigating state after navigation
+        setNavigating(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [navigating, result, router, imgArray]);
+
+ 
   if (loading || !result) {
     return (
       <SafeAreaView style={styles.loadingSafe}>
@@ -69,7 +89,7 @@ export default function gradingquality() {
     setExpandedUsage(expandedUsage === grade ? null : grade);
   };
 
-  // ✅ Show message if all counts are zero, centered with text + Try Again button
+
   if (allZero) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -95,8 +115,17 @@ export default function gradingquality() {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>📊 Grading Result</Text>
 
-        <View style={styles.imageWrapper}>
-          <Image source={{ uri: firstImageUri }} style={styles.image} />
+        {/* Image Viewer Section */}
+        <View style={styles.imageSection}>
+          <View style={styles.imageWrapper}>
+            <Image source={{ uri: firstImageUri }} style={styles.image} />
+          </View>
+          <TouchableOpacity 
+            style={styles.viewImageBtn}
+            onPress={() => setImageModalVisible(true)}
+          >
+            <Text style={styles.viewImageText}>🔍 View Full Image</Text>
+          </TouchableOpacity>
         </View>
 
         {/* CATEGORY A */}
@@ -253,7 +282,7 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category A"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade A:</Text> Green color – Excellent quality. Suitable
+                <Text style={styles.bold}>Grade A:</Text> Green color with no blemish– Excellent quality. Suitable
                  for export and supermarket sales.
               </Text>
 
@@ -263,7 +292,7 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category B"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade B:</Text> Green & yellow mix color – Good quality. 
+                <Text style={styles.bold}>Grade B:</Text> Green & yellow mix color with no blemish – Good quality. 
                 Suitable for general markets and hotel use.
 
               </Text>
@@ -274,7 +303,7 @@ export default function gradingquality() {
                   { borderLeftColor: gradeColors["Category C"] },
                 ]}
               >
-                <Text style={styles.bold}>Grade C:</Text> Red & orange color – Suitable for processing. Used for sauces, powders, 
+                <Text style={styles.bold}>Grade C:</Text> Red & orange color with no blemish– Suitable for processing. Used for sauces, powders, 
                 drying, and similar purposes.
 
               </Text>
@@ -302,18 +331,44 @@ export default function gradingquality() {
 
         <TouchableOpacity
           style={styles.nextBtn}
-          onPress={() =>
-            router.push({
-              pathname: "/quality/sortingquality",
-              params: {
-                result: JSON.stringify(result),
-                images: JSON.stringify(imgArray),
-              },
-            })
-          }
+          onPress={() => setNavigating(true)}
+          disabled={navigating}
         >
-          <Text style={styles.nextText}>Go to Sorting →</Text>
+          <Text style={styles.nextText}>
+            {navigating ? "Preparing data..." : "Go to Sorting →"}
+          </Text>
         </TouchableOpacity>
+
+        {/* Navigation Loading Modal */}
+        <Modal visible={navigating} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalEmoji}>⏳</Text>
+              <ActivityIndicator size="large" color="#10b981" />
+              <Text style={styles.modalText}>Processing data...</Text>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Image Viewer Modal */}
+        <Modal visible={imageModalVisible} transparent animationType="fade">
+          <View style={styles.imageModalOverlay}>
+            <View style={styles.imageModalContent}>
+              <TouchableOpacity 
+                style={styles.closeImageBtn}
+                onPress={() => setImageModalVisible(false)}
+              >
+                <Text style={styles.closeImageBtnText}>✕</Text>
+              </TouchableOpacity>
+              <Image 
+                source={{ uri: firstImageUri }} 
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.imageModalTitle}>Uploaded Image</Text>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -322,7 +377,7 @@ export default function gradingquality() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
 
-  /* LOADING STYLES (ONLY ADDITION) */
+  
   loadingSafe: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: {
     flex: 1,
@@ -338,8 +393,21 @@ const styles = StyleSheet.create({
 
   container: { padding: 16, paddingBottom: 40 },
   title: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
-  imageWrapper: { height: 280, marginBottom: 16 },
+  
+  imageSection: { marginBottom: 20 },
+  imageWrapper: { height: 280, marginBottom: 12, borderRadius: 12, overflow: "hidden" },
   image: { width: "100%", height: "100%" },
+  viewImageBtn: {
+    backgroundColor: "#10b981",
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  viewImageText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
 
   centeredContainer: {
     flex: 1,
@@ -405,4 +473,71 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   nextText: { color: "#fff", fontWeight: "700" },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 30,
+    alignItems: "center",
+  },
+  modalEmoji: {
+    fontSize: 60,
+    marginBottom: 16,
+  },
+  modalText: {
+    marginTop: 16,
+    color: "#6b7280",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageModalContent: {
+    width: "95%",
+    height: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+  },
+  closeImageBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: "#ef4444",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeImageBtnText: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  fullImage: {
+    width: "100%",
+    height: "90%",
+    marginTop: 20,
+    borderRadius: 12,
+  },
+  imageModalTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1f2937",
+    marginTop: 12,
+  },
 });

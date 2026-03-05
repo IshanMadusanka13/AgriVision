@@ -3,7 +3,7 @@ from tensorflow.keras.models import load_model
 
 LEAF_MODEL_PATH = "models/disease_v2.pt"
 DISEASE_CLASSIFIER_PATH = "models/final_Efficent_model.keras"
-QUALITY_MODEL_PATH = "models/qualityV2.pt"
+QUALITY_MODEL_PATH = "models/qualityV4.pt"
 GROWTH_MODEL_PATH = "models/growth.pt"
 
 

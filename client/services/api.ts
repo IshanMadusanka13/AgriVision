@@ -712,6 +712,25 @@ export const updateRecommendationsMetadata = async (userEmail: string, warnings:
   }
 };
 
+export const getAllBatches = async (userId: string = "public_user", limit: number = 50): Promise<any> => {
+  try {
+    const response = await api.get('/api/quality/batches', {
+      params: {
+        user_id: userId,
+        limit: Math.min(limit, 100),
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Get batches error:', error);
+    return {
+      success: false,
+      batches: [],
+      error: error instanceof Error ? error.message : 'Failed to fetch batches',
+    };
+  }
+};
+
 export default {
   detectPlant,
   getRecommendation,
@@ -721,6 +740,7 @@ export default {
   checkAPIStatus,
   predict_disease,
   gradeQuality,
+  getAllBatches,
   signup,
   login,
   // admin exports
