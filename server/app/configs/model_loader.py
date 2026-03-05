@@ -8,7 +8,7 @@ GROWTH_MODEL_PATH = "models/growth.pt"
 
 
 leaf_model = YOLO(LEAF_MODEL_PATH)
-disease_classifier = load_model(DISEASE_CLASSIFIER_PATH, compile=False)
+disease_classifier = ''#load_model(DISEASE_CLASSIFIER_PATH, compile=False)
 quality_model = YOLO(QUALITY_MODEL_PATH)
 growth_model = YOLO(GROWTH_MODEL_PATH)
 

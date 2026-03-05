@@ -136,7 +136,7 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.203:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.2:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -420,14 +420,15 @@ export const getWeatherForecast = async (
 //-------------------------------------------------
 //-------------------Quality-----------------------
 //-------------------------------------------------
-export const gradeQuality = async (imageUris: string[]): Promise<any> => {
+export const gradeQuality = async (imageUris: string[], userId?: string): Promise<any> => {
   try {
     const formData = new FormData();
     imageUris.forEach((uri, i) => {
       formData.append('files', createFileFromUri(uri));
     });
 
-    const response = await fetch(`${API_URL}/api/quality/grade`, {
+    const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+    const response = await fetch(`${API_URL}/api/quality/grade${query}`, {
       method: 'POST',
       body: formData,
     });
@@ -714,12 +715,14 @@ export const updateRecommendationsMetadata = async (userEmail: string, warnings:
 
 export const getAllBatches = async (userId: string = "public_user", limit: number = 50): Promise<any> => {
   try {
+    console.log(`Fetching batches for user: ${userId}, limit: ${limit}`);
     const response = await api.get('/api/quality/batches', {
       params: {
         user_id: userId,
         limit: Math.min(limit, 100),
       },
     });
+    console.log('Batch API raw response:', response);
     return response.data;
   } catch (error) {
     console.error('Get batches error:', error);

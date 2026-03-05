@@ -11,6 +11,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from "@/services/api";
 
 const gradeColors: Record<string, string> = {
@@ -37,7 +38,8 @@ export default function gradingquality() {
   useEffect(() => {
     const upload = async () => {
       try {
-        const data = await api.gradeQuality(imgArray);
+        const storedUserId = await AsyncStorage.getItem('userId');
+        const data = await api.gradeQuality(imgArray, storedUserId || undefined);
         setResult(data);
         setLoading(false);
       } catch (err) {
@@ -365,7 +367,7 @@ export default function gradingquality() {
                 style={styles.fullImage}
                 resizeMode="contain"
               />
-              <Text style={styles.imageModalTitle}>Uploaded Image</Text>
+             
             </View>
           </View>
         </Modal>
@@ -506,7 +508,7 @@ const styles = StyleSheet.create({
   imageModalContent: {
     width: "95%",
     height: "85%",
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
     borderRadius: 16,
     padding: 16,
     alignItems: "center",

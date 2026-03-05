@@ -7,6 +7,7 @@ import {
   Animated,
   RefreshControl,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAllBatches } from "../../services/api";
 
 interface BatchData {
@@ -51,7 +52,15 @@ export default function BatchAnalysis() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getAllBatches("public_user");
+      const storedUserId = await AsyncStorage.getItem('userId');
+
+      if (!storedUserId) {
+        setError("User not found. Please login again.");
+        setAllBatches([]);
+        return;
+      }
+
+      const response = await getAllBatches(storedUserId);
       
       if (response.success && response.batches && response.batches.length > 0) {
         // Sort batches by created_at in descending order (newest first)
@@ -60,7 +69,7 @@ export default function BatchAnalysis() {
         );
         setAllBatches(sortedBatches);
       } else {
-        setError("No batches found. Please upload and grade some peppers first.");
+        setError(response?.error || "No batches found for your account. Please upload and grade some peppers first.");
       }
     } catch (err) {
       console.error("Error loading batches:", err);
@@ -326,9 +335,9 @@ export default function BatchAnalysis() {
             </View>
 
             <View style={styles.gradesSection}>
-              <GradeRow label="Grade A (Export Grade)" value={calcPercentage(batch.grade_a, batch.total_peppers)} color="#16a34a" count={batch.grade_a} />
-              <GradeRow label="Grade B (Supermarket Quality)" value={calcPercentage(batch.grade_b, batch.total_peppers)} color="#eab308" count={batch.grade_b} />
-              <GradeRow label="Grade C (Processing Grade)" value={calcPercentage(batch.grade_c, batch.total_peppers)} color="#f97316" count={batch.grade_c} />
+              <GradeRow label="Grade A Quality" value={calcPercentage(batch.grade_a, batch.total_peppers)} color="#16a34a" count={batch.grade_a} />
+              <GradeRow label="Grade B Quality" value={calcPercentage(batch.grade_b, batch.total_peppers)} color="#eab308" count={batch.grade_b} />
+              <GradeRow label="Grade C Quality" value={calcPercentage(batch.grade_c, batch.total_peppers)} color="#f97316" count={batch.grade_c} />
               <GradeRow label="Grade D (Below Standard)" value={calcPercentage(batch.grade_d, batch.total_peppers)} color="#dc2626" count={batch.grade_d} />
             </View>
           </View>

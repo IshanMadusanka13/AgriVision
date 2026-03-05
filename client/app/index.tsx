@@ -105,6 +105,13 @@ export default function HomeScreen() {
       icon: '📊',
       route: '/growth/history',
       color: '#3b82f6',
+    },
+     {
+      title: 'Batch History',
+      description: 'View past batch analyses',
+      icon: '📊',
+        route: '/quality/batchanalysis',
+      color: '#3b82f6',
     }
   ];
 

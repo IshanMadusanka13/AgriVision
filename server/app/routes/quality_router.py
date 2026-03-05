@@ -17,14 +17,15 @@ class BatchSaveRequest(BaseModel):
     batch_id: str
     total_peppers: int
     grade_counts: dict
-    user_id: str = "public_user"
+    user_id: str = "userId"
 
 
 # ========== Quality Grading Endpoints ==========
 @router.post("/grade")
 async def grade(
     files: List[UploadFile] = File(...),
-    save_to_db: bool = Query(True)
+    save_to_db: bool = Query(True),
+    user_id: str = Query("public_user")
 ):
     """
     Accepts 1–4 images from mobile app and grades them.
@@ -38,7 +39,7 @@ async def grade(
             batch_id=result["batch_id"],
             total_peppers=result.get("total_peppers", 0),
             grade_counts=result["counts"],
-            user_id="public_user"
+            user_id=user_id
         )
         result["database"] = db_result
     
