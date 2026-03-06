@@ -156,3 +156,37 @@ async def get_latest_batches(user_id: str = "public_user", count: int = 2) -> Li
     except Exception as e:
         print(f"Error fetching latest batches: {str(e)}")
         return []
+
+
+async def delete_batch(batch_uuid: str, user_id: str = "public_user") -> Dict:
+    """
+    Delete a specific batch by UUID
+    
+    Args:
+        batch_uuid: Batch UUID to delete
+        user_id: User ID for verification
+    
+    Returns:
+        Dictionary with success status
+    """
+    try:
+        supabase = get_supabase_client()
+        
+        # Delete the batch (verify user_id for security)
+        response = supabase.table("batches")\
+            .delete()\
+            .eq("id", batch_uuid)\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        return {
+            "success": True,
+            "message": "Batch deleted successfully"
+        }
+    
+    except Exception as e:
+        print(f"Error deleting batch: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

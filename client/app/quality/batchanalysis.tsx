@@ -6,9 +6,11 @@ import {
   ScrollView,
   Animated,
   RefreshControl,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAllBatches } from "../../services/api";
+import { getAllBatches, deleteBatch } from "../../services/api";
 
 interface BatchData {
   id: string;
@@ -83,6 +85,45 @@ export default function BatchAnalysis() {
     setRefreshing(true);
     await loadBatches();
     setRefreshing(false);
+  };
+
+  const handleRemoveBatch = async (batchId: string, batchName: string) => {
+    Alert.alert(
+      "Remove Batch",
+      `Are you sure you want to remove ${batchName}?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const storedUserId = await AsyncStorage.getItem('userId');
+              if (!storedUserId) {
+                Alert.alert("Error", "User not found. Please login again.");
+                return;
+              }
+              
+              const response = await deleteBatch(batchId, storedUserId);
+              
+              if (response.success) {
+                // Remove from UI immediately
+                setAllBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId));
+                Alert.alert("Success", "Batch removed successfully");
+              } else {
+                Alert.alert("Error", response.error || "Failed to remove batch");
+              }
+            } catch (error) {
+              console.error("Error removing batch:", error);
+              Alert.alert("Error", "Failed to remove batch. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Get current and previous batch
@@ -318,7 +359,15 @@ export default function BatchAnalysis() {
                 </Text>
                 <Text style={styles.batchId}>Batch ID: {batch.batch_id.substring(0, 8)}</Text>
               </View>
-              <Text style={styles.cardDate}>{formatDateTime(batch.created_at)}</Text>
+              <View style={styles.cardHeaderRight}>
+                <Text style={styles.cardDate}>{formatDateTime(batch.created_at)}</Text>
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveBatch(batch.id, index === 0 ? 'Latest Batch' : `Batch #${allBatches.length - index}`)}
+                >
+                  <Text style={styles.removeButtonText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.batchStats}>
@@ -414,6 +463,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 12,
+  },
+  cardHeaderRight: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  removeButton: {
+    backgroundColor: "#dc2626",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  removeButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   cardTitle: {
     fontSize: 18,

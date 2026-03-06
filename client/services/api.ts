@@ -879,6 +879,23 @@ export const getAllBatches = async (userId: string = "public_user", limit: numbe
   }
 };
 
+export const deleteBatch = async (batchId: string, userId: string = "public_user"): Promise<any> => {
+  try {
+    const response = await api.delete(`/api/quality/batch/${batchId}`, {
+      params: {
+        user_id: userId,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Delete batch error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete batch',
+    };
+  }
+};
+
 export default {
   detectPlant,
   getRecommendation,
@@ -889,6 +906,7 @@ export default {
   predict_disease,
   gradeQuality,
   getAllBatches,
+  deleteBatch,
   signup,
   login,
   // admin exports
