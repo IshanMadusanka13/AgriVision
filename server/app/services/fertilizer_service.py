@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from datetime import datetime
 import os
-from configs.model_loader import growth_model
+from app.configs.model_loader import growth_model
 
 
 # Models

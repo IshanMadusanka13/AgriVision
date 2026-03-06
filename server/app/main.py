@@ -2,14 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from routes.disease_router import router as upload_router
-from routes.growth_router import router as growth_router
-from routes.quality_router import router as quality_router
-from routes.auth_router import router as auth_router
-from routes.admin_router import router as admin_router
-from routes.planting.field_management_router import router as field_management_router
-from routes.planting.layout_generator_router import router as layout_generator_router
-from routes.planting.planting_router import router as planting_router
+from app.routes.disease_router import router as upload_router
+from app.routes.growth_router import router as growth_router
+from app.routes.quality_router import router as quality_router
+from app.routes.auth_router import router as auth_router
+from app.routes.admin_router import router as admin_router
+from app.routes.planting.precision_agri_router import router as precision_agri_router
+
+
 
 app = FastAPI(title="AgriVision API", version="1.0.0")
 app.add_middleware(
@@ -34,11 +34,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def root():
     return {"message": "Hello World"}
 
+# Include all your routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(upload_router, prefix="/api/disease", tags=["Disease"])
 app.include_router(growth_router, prefix="/api/growth", tags=["Growth"])
 app.include_router(quality_router, prefix="/api/quality", tags=["Quality"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
-app.include_router(planting_router, prefix="/api/planting", tags=["Precision Planting"])
-app.include_router(field_management_router, prefix="/api/planting", tags=["Field Management"])
-app.include_router(layout_generator_router, prefix="/api/planting", tags=["Layout Generation"])
+app.include_router(precision_agri_router, prefix="/api/planting", tags=["Precision Agriculture"])

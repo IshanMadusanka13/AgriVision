@@ -7,8 +7,8 @@ from PIL import Image
 from collections import Counter
 from typing import Optional, Dict, List, Tuple
 from uuid import uuid4
-from configs.model_loader import disease_model
-from configs.supabase_client import get_supabase_client
+from app.configs.model_loader import disease_model
+from app.configs.supabase_client import get_supabase_client
 
 CONF_THRESHOLD = 0.45
 RESPONSE_MESSAGES = {

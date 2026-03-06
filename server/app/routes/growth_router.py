@@ -22,7 +22,7 @@ torch.load = _patched_torch_load
 try:
     from services.weather_service import weather_service
 except ImportError:
-    from services.weather_service import weather_service
+    from app.services.weather_service import weather_service
 
 try:
     from services.fertilizer_service import (
@@ -34,7 +34,7 @@ try:
         generate_fertilizer_plan
     )
 except ImportError:
-    from services.fertilizer_service import (
+    from app.services.fertilizer_service import (
         NPKInput,
         FertilizerRecommendation,
         DetectionCounts,
@@ -44,16 +44,16 @@ except ImportError:
     )
 
 try:
-    from services.supabase_service import SupabaseService
+    from app.services.supabase_service import SupabaseService
 except ImportError:
-    from services.supabase_service import SupabaseService
+    from app.services.supabase_service import SupabaseService
 
 supabase_service = SupabaseService()
 
 router = APIRouter()
 
 # Load YOLO model from environment variable
-model_path = os.getenv('GROWTH_MODEL_PATH', 'models/growth.pt')
+model_path = os.getenv('GROWTH_MODEL_PATH', 'app/models/growth.pt')
 if not os.path.isabs(model_path):
     model_path = os.path.join(os.path.dirname(__file__), '..', model_path)
 model = YOLO(model_path)

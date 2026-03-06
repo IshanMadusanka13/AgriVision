@@ -5,7 +5,7 @@ from typing import List
 from fastapi import UploadFile
 from ultralytics import YOLO
 from PIL import Image
-from configs.model_loader import quality_model
+from app.configs.model_loader import quality_model  
 
 CLASS_NAMES = [
     "Category A",
