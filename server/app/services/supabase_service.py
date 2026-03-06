@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, date
 from uuid import UUID, uuid4
 import os
-from configs.supabase_client import get_supabase_client
+from app.configs.supabase_client import get_supabase_client
 
 
 class SupabaseService:
@@ -31,9 +31,6 @@ class SupabaseService:
     def create_analysis_session(
         self,
         user_id: str,
-        nitrogen: Optional[float] = None,
-        phosphorus: Optional[float] = None,
-        potassium: Optional[float] = None,
         ph: Optional[float] = None,
         temperature: Optional[float] = None,
         humidity: Optional[float] = None,
@@ -49,13 +46,12 @@ class SupabaseService:
         leaf_count: int = 0,
         ripening_count: int = 0,
         current_weather: Optional[str] = None,
+        plant_id: Optional[int] = None,
+        plant_height_cm: Optional[float] = None,
     ) -> Dict:
-        
+
         session_data = {
             "user_id": user_id,
-            "nitrogen": nitrogen,
-            "phosphorus": phosphorus,
-            "potassium": potassium,
             "ph": ph,
             "temperature": temperature,
             "humidity": humidity,
@@ -71,6 +67,8 @@ class SupabaseService:
             "leaf_count": leaf_count,
             "ripening_count": ripening_count,
             "current_weather": current_weather,
+            "plant_id": plant_id,
+            "plant_height_cm": plant_height_cm,
         }
 
         response = (
@@ -139,36 +137,6 @@ class SupabaseService:
         )
         return response.data
 
-
-    def save_npk_status(self, session_id: str, npk_status: Dict) -> Dict:
-       
-        npk_record = {
-            "session_id": session_id,
-            "nitrogen_level": npk_status.get("nitrogen", {}).get("level"),
-            "nitrogen_current": npk_status.get("nitrogen", {}).get("current"),
-            "nitrogen_optimal_range": npk_status.get("nitrogen", {}).get("optimal"),
-            "phosphorus_level": npk_status.get("phosphorus", {}).get("level"),
-            "phosphorus_current": npk_status.get("phosphorus", {}).get("current"),
-            "phosphorus_optimal_range": npk_status.get("phosphorus", {}).get(
-                "optimal"
-            ),
-            "potassium_level": npk_status.get("potassium", {}).get("level"),
-            "potassium_current": npk_status.get("potassium", {}).get("current"),
-            "potassium_optimal_range": npk_status.get("potassium", {}).get("optimal"),
-        }
-
-        response = self.client.table("npk_status").insert(npk_record).execute()
-        return response.data[0] if response.data else None
-
-    def get_npk_status(self, session_id: str) -> Optional[Dict]:
-       
-        response = (
-            self.client.table("npk_status")
-            .select("*")
-            .eq("session_id", session_id)
-            .execute()
-        )
-        return response.data[0] if response.data else None
 
     def save_fertilizer_recommendations(
         self, session_id: str, week_plan: List[Dict]
@@ -273,20 +241,15 @@ class SupabaseService:
     def save_complete_analysis(
         self,
         user_id: str,
-        npk_data: Dict,
         environmental_data: Dict,
         image_urls: Dict,
         growth_stage_data: Dict,
         weather_forecast: List[Dict],
-        npk_status: Dict,
         fertilizer_recommendation: Dict,
     ) -> str:
-        
+
         session = self.create_analysis_session(
             user_id=user_id,
-            nitrogen=npk_data.get("nitrogen"),
-            phosphorus=npk_data.get("phosphorus"),
-            potassium=npk_data.get("potassium"),
             ph=environmental_data.get("ph"),
             temperature=environmental_data.get("temperature"),
             humidity=environmental_data.get("humidity"),
@@ -302,15 +265,14 @@ class SupabaseService:
             leaf_count=growth_stage_data.get("leaf_count", 0),
             ripening_count=growth_stage_data.get("ripening_count", 0),
             current_weather=environmental_data.get("current_weather"),
+            plant_id=growth_stage_data.get("plant_id"),
+            plant_height_cm=growth_stage_data.get("plant_height_cm"),
         )
 
         session_id = session["id"]
 
         if weather_forecast:
             self.save_weather_forecast(session_id, weather_forecast)
-
-        if npk_status:
-            self.save_npk_status(session_id, npk_status)
 
         if fertilizer_recommendation:
             week_plan = fertilizer_recommendation.get("week_plan", [])
@@ -326,20 +288,18 @@ class SupabaseService:
         return session_id
 
     def get_complete_analysis(self, session_id: str) -> Dict:
-        
+
         session = self.get_session_by_id(session_id)
         if not session:
             return None
 
         weather_forecast = self.get_weather_forecast(session_id)
-        npk_status = self.get_npk_status(session_id)
         fertilizer_recommendations = self.get_fertilizer_recommendations(session_id)
         metadata = self.get_recommendations_metadata(session_id)
 
         return {
             "session": session,
             "weather_forecast": weather_forecast,
-            "npk_status": npk_status,
             "fertilizer_recommendations": fertilizer_recommendations,
             "warnings": metadata.get("warnings", []) if metadata else [],
             "tips": metadata.get("tips", []) if metadata else [],
@@ -351,59 +311,62 @@ class SupabaseService:
 
 # ==================== Disease Detection Operations ====================
 
-def get_disease_info_by_name(self, disease_name: str) -> Optional[Dict]:
-    """
-    Get disease information by name
+    def get_disease_info_by_name(self, disease_name: str) -> Optional[Dict]:
+        """
+        Get disease information by name
+
+        Args:
+            disease_name: Name of the disease
+
+        Returns:
+            Dict: Disease information or None
+        """
+        response = (
+            self.client.table("disease_info")
+            .select("*")
+            .eq("disease_name", disease_name)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+
+    def get_multiple_diseases_info(self, disease_names: List[str]) -> List[Dict]:
+        """
+        Get information for multiple diseases
+
+        Args:
+            disease_names: List of disease names
+
+        Returns:
+            List[Dict]: List of disease information
+        """
+        if not disease_names:
+            return []
+
+        response = (
+            self.client.table("disease_info")
+            .select("*")
+            .in_("disease_name", disease_names)
+            .execute()
+        )
+        return response.data if response.data else []
+
+
+    def create_disease_detection(
+        self,
+        user_id: str,
+        annotated_image_url: Optional[str],
+        total_detections: int,
+        detections: List[Dict],
+        disease_summary: Dict,
+        conclusion: str,
+        recommendations: Dict,
+        status: str
+        ) -> Dict:
+        """
+        Create a new disease detection record
     
-    Args:
-        disease_name: Name of the disease
-        
-    Returns:
-        Dict: Disease information or None
-    """
-    response = (
-        self.client.table("disease_info")
-        .select("*")
-        .eq("disease_name", disease_name)
-        .execute()
-    )
-    return response.data[0] if response.data else None
-
-
-def get_multiple_diseases_info(self, disease_names: List[str]) -> List[Dict]:
-    """
-    Get information for multiple diseases
-    
-    Args:
-        disease_names: List of disease names
-        
-    Returns:
-        List[Dict]: List of disease information
-    """
-    response = (
-        self.client.table("disease_info")
-        .select("*")
-        .in_("disease_name", disease_names)
-        .execute()
-    )
-    return response.data
-
-
-def create_disease_detection(
-    self,
-    user_id: str,
-    annotated_image_url: Optional[str],
-    total_detections: int,
-    detections: List[Dict],
-    disease_summary: Dict,
-    conclusion: str,
-    recommendations: Dict,
-    status: str
-) -> Dict:
-    """
-    Create a new disease detection record
-    
-    Args:
+        Args:
         user_id: User ID
         annotated_image_url: URL of annotated image
         total_detections: Total number of detections
@@ -413,10 +376,10 @@ def create_disease_detection(
         recommendations: Treatment recommendations
         status: Detection status
         
-    Returns:
+        Returns:
         Dict: Created detection record
-    """
-    detection_data = {
+        """
+        detection_data = {
         "user_id": user_id,
         "annotated_image_url": annotated_image_url,
         "total_detections": total_detections,
@@ -425,146 +388,290 @@ def create_disease_detection(
         "conclusion": conclusion,
         "recommendations": recommendations,
         "status": status
-    }
+        }
     
-    response = (
+        response = (
         self.client.table("disease_detections")
         .insert(detection_data)
         .execute()
-    )
-    return response.data[0] if response.data else None
+        )
+        return response.data[0] if response.data else None
 
 
-def get_detection_by_id(self, detection_id: str) -> Optional[Dict]:
-    """
-    Get a disease detection by ID
+    def get_detection_by_id(self, detection_id: str) -> Optional[Dict]:
+        """
+        Get a disease detection by ID
     
-    Args:
+        Args:
         detection_id: Detection ID
         
-    Returns:
+        Returns:
         Dict: Detection data or None
-    """
-    response = (
+        """
+        response = (
         self.client.table("disease_detections")
         .select("*")
         .eq("id", detection_id)
         .execute()
-    )
-    return response.data[0] if response.data else None
+        )
+        return response.data[0] if response.data else None
 
 
-def get_user_detections(
-    self, 
-    user_id: str, 
-    limit: int = 10, 
-    offset: int = 0
-) -> List[Dict]:
-    """
-    Get all disease detections for a user
+    def get_user_detections(
+        self, 
+        user_id: str, 
+        limit: int = 10, 
+        offset: int = 0
+        ) -> List[Dict]:
+        """
+        Get all disease detections for a user
     
-    Args:
+        Args:
         user_id: User ID
         limit: Number of records to return
         offset: Offset for pagination
         
-    Returns:
+        Returns:
         List[Dict]: List of detection records
-    """
-    response = (
+        """
+        response = (
         self.client.table("disease_detections")
         .select("*")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
-    )
-    return response.data
+        )
+        return response.data
 
 
-def get_detection_statistics(self, user_id: str) -> Dict:
-    """
-    Get statistics about user's disease detections
+    def get_detection_statistics(self, user_id: str) -> Dict:
+        """
+        Get statistics about user's disease detections
     
-    Args:
+        Args:
         user_id: User ID
         
-    Returns:
+        Returns:
         Dict: Statistics including total scans, diseases found, etc.
-    """
-    # Get all user detections
-    response = (
-        self.client.table("disease_detections")
-        .select("total_detections, disease_summary, status")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    
-    if not response.data:
+        """
+        # Get all user detections
+        response = (
+            self.client.table("disease_detections")
+            .select("total_detections, disease_summary, status")
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        if not response.data:
+            return {
+                "total_scans": 0,
+                "total_detections": 0,
+                "diseases_found": {},
+                "healthy_scans": 0
+            }
+
+        total_scans = len(response.data)
+        total_detections = sum(d["total_detections"] for d in response.data)
+
+        # Aggregate disease counts
+        all_diseases = {}
+        healthy_scans = 0
+
+        for detection in response.data:
+            disease_summary = detection.get("disease_summary", {})
+            for disease, count in disease_summary.items():
+                if "healthy" in disease.lower():
+                    healthy_scans += 1
+                all_diseases[disease] = all_diseases.get(disease, 0) + count
+
         return {
-            "total_scans": 0,
-            "total_detections": 0,
-            "diseases_found": {},
-            "healthy_scans": 0
+            "total_scans": total_scans,
+            "total_detections": total_detections,
+            "diseases_found": all_diseases,
+            "healthy_scans": healthy_scans
         }
-    
-    total_scans = len(response.data)
-    total_detections = sum(d["total_detections"] for d in response.data)
-    
-    # Aggregate disease counts
-    all_diseases = {}
-    healthy_scans = 0
-    
-    for detection in response.data:
-        disease_summary = detection.get("disease_summary", {})
-        for disease, count in disease_summary.items():
-            if "healthy" in disease.lower():
-                healthy_scans += 1
-            all_diseases[disease] = all_diseases.get(disease, 0) + count
-    
-    return {
-        "total_scans": total_scans,
-        "total_detections": total_detections,
-        "diseases_found": all_diseases,
-        "healthy_scans": healthy_scans
-    }
 
 
-def upload_detection_image(
-    self, 
-    image_bytes: bytes, 
-    user_id: str,
-    content_type: str = "image/png"
-) -> str:
-    """
-    Upload disease detection image to Supabase Storage
+    def upload_detection_image(
+        self, 
+        image_bytes: bytes, 
+        user_id: str,
+        content_type: str = "image/png"
+        ) -> str:
+        """
+        Upload disease detection image to Supabase Storage
     
-    Args:
+        Args:
         image_bytes: Image data as bytes
         user_id: User ID
         content_type: Image content type
         
-    Returns:
+        Returns:
         str: Public URL of uploaded image
-    """
-    try:
-        from uuid import uuid4
-        
-        # Generate unique filename
-        file_extension = "png" if "png" in content_type else "jpg"
-        file_name = f"{user_id}/detections/{uuid4()}.{file_extension}"
-        
-        # Upload to Supabase Storage
-        response = self.client.storage.from_("plant-images").upload(
-            file_name, 
-            image_bytes,
-            {"content-type": content_type}
+        """
+        try:
+            from uuid import uuid4
+
+            # Generate unique filename
+            file_extension = "png" if "png" in content_type else "jpg"
+            file_name = f"{user_id}/detections/{uuid4()}.{file_extension}"
+
+            # Upload to Supabase Storage
+            response = self.client.storage.from_("plant-images").upload(
+                file_name,
+                image_bytes,
+                {"content-type": content_type}
+            )
+
+            # Get public URL
+            public_url = self.client.storage.from_("plant-images").get_public_url(file_name)
+
+            return public_url
+        except Exception as e:
+            print(f"Error uploading detection image: {e}")
+            return None
+
+
+        # ==================== ArUco Marker Management ====================
+
+    def create_aruco_marker(
+        self,
+        user_id: str,
+        marker_id: int,
+        size_cm: float = 5.0,
+        status: str = "generated"
+        ) -> Dict:
+        """Create a new ArUco marker record"""
+        marker_data = {
+        "user_id": user_id,
+        "marker_id": marker_id,
+        "size_cm": size_cm,
+        "status": status,
+        "assigned_to_plant": False
+        }
+
+        response = (
+        self.client.table("aruco_markers")
+        .insert(marker_data)
+        .execute()
         )
-        
-        # Get public URL
-        public_url = self.client.storage.from_("plant-images").get_public_url(file_name)
-        
-        return public_url
-    except Exception as e:
-        print(f"Error uploading detection image: {e}")
-        return None
+        return response.data[0] if response.data else None
+
+
+    def get_user_markers(self, user_id: str) -> List[Dict]:
+        """Get all markers for a user"""
+        response = (
+        self.client.table("aruco_markers")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("marker_id")
+        .execute()
+        )
+        return response.data
+
+
+    def check_marker_exists(self, user_id: str, marker_id: int) -> bool:
+        """Check if a marker ID already exists for a user"""
+        response = (
+        self.client.table("aruco_markers")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("marker_id", marker_id)
+        .execute()
+        )
+        return len(response.data) > 0
+
+
+    def get_available_marker_ids(self, user_id: str, max_id: int = 1000) -> List[int]:
+        """Get list of available marker IDs for a user"""
+        existing = (
+        self.client.table("aruco_markers")
+        .select("marker_id")
+        .eq("user_id", user_id)
+        .execute()
+        )
+
+        existing_ids = set(m["marker_id"] for m in existing.data)
+        all_ids = set(range(0, max_id + 1))
+        available_ids = sorted(list(all_ids - existing_ids))
+
+        return available_ids
+
+
+    def update_marker_status(
+        self,
+        user_id: str,
+        marker_id: int,
+        status: str,
+        assigned_to_plant: bool = None
+        ) -> Dict:
+        """Update marker status"""
+        update_data = {"status": status}
+        if assigned_to_plant is not None:
+            update_data["assigned_to_plant"] = assigned_to_plant
+
+        response = (
+            self.client.table("aruco_markers")
+            .update(update_data)
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+
+    # ==================== Plant Start Date (stored in aruco_markers) ====================
+
+    def get_plant_start_date(self, user_id: str, marker_id: int) -> Optional[Dict]:
+        """Get a marker record including start_date for plant age calculation"""
+        response = (
+            self.client.table("aruco_markers")
+            .select("marker_id, start_date, status, assigned_to_plant")
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+    def get_all_plant_start_dates(self, user_id: str) -> List[Dict]:
+        """Get all markers that have a start_date set"""
+        response = (
+            self.client.table("aruco_markers")
+            .select("marker_id, start_date, status, assigned_to_plant")
+            .eq("user_id", user_id)
+            .not_.is_("start_date", "null")
+            .order("marker_id")
+            .execute()
+        )
+        return response.data or []
+
+    def save_plant_start_date(self, user_id: str, marker_id: int, start_date: str) -> Dict:
+        """Set the start_date on an existing aruco_marker record"""
+        response = (
+            self.client.table("aruco_markers")
+            .update({"start_date": start_date, "assigned_to_plant": True})
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .execute()
+        )
+        return response.data[0] if response.data else {}
+
+    def get_marker_statistics(self, user_id: str) -> Dict:
+        """Get marker usage statistics for a user"""
+        markers = self.get_user_markers(user_id)
+
+        total = len(markers)
+        assigned = sum(1 for m in markers if m.get("assigned_to_plant"))
+        statuses = {}
+
+        for marker in markers:
+            status = marker.get("status", "unknown")
+            statuses[status] = statuses.get(status, 0) + 1
+
+        return {
+            "total_generated": total,
+            "assigned_to_plants": assigned,
+            "available": total - assigned,
+            "status_breakdown": statuses
+        }

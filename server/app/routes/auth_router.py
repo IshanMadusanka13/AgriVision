@@ -5,9 +5,9 @@ import bcrypt
 import secrets
 
 try:
-    from services.supabase_service import SupabaseService
+    from app.services.supabase_service import SupabaseService
 except ImportError:
-    from services.supabase_service import SupabaseService
+    from app.services.supabase_service import SupabaseService
 
 router = APIRouter()
 supabase_service = SupabaseService()

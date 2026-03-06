@@ -79,10 +79,10 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.featureCard}>
-          <Text style={styles.featureIcon}>🧪</Text>
-          <Text style={styles.featureTitle}>NPK Analysis</Text>
+          <Text style={styles.featureIcon}>🌤️</Text>
+          <Text style={styles.featureTitle}>Environmental Analysis</Text>
           <Text style={styles.featureDescription}>
-            Analyzes soil fertilizer levels and provides recommendations
+            Analyzes pH, weather, and environmental conditions
           </Text>
         </View>
 
@@ -110,7 +110,7 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>How to Use</Text>
         <Text style={styles.instructionText}>1. Take a clear photo of your plant</Text>
         <Text style={styles.instructionText}>2. AI detects leaves, flowers, and fruits</Text>
-        <Text style={styles.instructionText}>3. Enter NPK meter readings</Text>
+        <Text style={styles.instructionText}>3. Enter soil pH and weather data</Text>
         <Text style={styles.instructionText}>4. Get personalized fertilizer plan</Text>
       </View>
 

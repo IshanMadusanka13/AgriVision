@@ -4,19 +4,11 @@ import cv2
 import numpy as np
 from datetime import datetime
 import os
-from configs.model_loader import growth_model
 
 
 # Models
-class NPKInput(BaseModel):
-    nitrogen: float  
-    phosphorus: float  
-    potassium: float  
-
-
-class FertilizerRecommendation(BaseModel):
+class GrowthRecommendation(BaseModel):
     week_plan: List[Dict]
-    npk_status: Dict
     warnings: List[str]
     tips: List[str]
 
@@ -28,10 +20,10 @@ class DetectionCounts(BaseModel):
     ripening: int
 
 
-def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str]:
-    
+def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str, np.ndarray]:
+
     if img is None:
-        return "unknown", 0.0, DetectionCounts(flower=0, fruit=0, leaf=0, ripening=0), ""
+        return "unknown", 0.0, DetectionCounts(flower=0, fruit=0, leaf=0, ripening=0), "", img
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     debug_dir = "app/debug_images"
@@ -41,19 +33,19 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     cv2.imwrite(input_path, img)
 
     # Run YOLO model inference
-    results = model.predict(img, conf=0.5)
+    results = model.predict(img, conf=0.2)
 
     counts = {
-        "flower": 0,    
-        "fruit": 0,     
-        "leaf": 0,      
-        "ripening": 0   
+        "flower": 0,
+        "fruit": 0,
+        "leaf": 0,
+        "ripening": 0
     }
 
     for result in results:
         for box in result.boxes:
             cls_id = int(box.cls[0])
-            label = growth_model.names[cls_id].lower()
+            label = model.names[cls_id].lower()
             if label in counts:
                 counts[label] += 1
 
@@ -66,12 +58,12 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     is_scotch_bonnet = counts["leaf"] > 0
 
     if not is_scotch_bonnet:
-        return "unknown", 0.0, DetectionCounts(**counts), output_path
+        return "unknown", 0.0, DetectionCounts(**counts), output_path, annotated_img
 
     total_detections = counts["leaf"] + counts["flower"] + counts["fruit"]
 
     if total_detections == 0:
-        return "unknown", 0.0, DetectionCounts(**counts), output_path
+        return "unknown", 0.0, DetectionCounts(**counts), output_path, annotated_img
 
     confidence = min(avg_conf * 100, 100.0)
 
@@ -86,90 +78,23 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     else:
         growth_stage = "early_vegetative"
 
-    return growth_stage, confidence, DetectionCounts(**counts), output_path
+    return growth_stage, confidence, DetectionCounts(**counts), output_path, annotated_img
 
 
-def analyze_npk_levels(npk: NPKInput, growth_stage: str) -> Dict:
-    
-    status = {}
-
-    optimal_ranges = {
-        "early_vegetative": {
-            "N": (150, 280),  
-            "P": (20, 35),     
-            "K": (100, 180)    
-        },
-        "vegetative": {
-            "N": (200, 350),   
-            "P": (18, 32),     
-            "K": (120, 200)    
-        },
-        "flowering": {
-            "N": (150, 280),   
-            "P": (15, 28),    
-            "K": (150, 240)    
-        },
-        "fruiting": {
-            "N": (100, 220),   
-            "P": (12, 25),     
-            "K": (180, 280)    
-        },
-        "ripening": {
-            "N": (80, 180),    
-            "P": (10, 22),     
-            "K": (200, 320)    
-        },
-        "unknown": {
-            "N": (150, 280),   
-            "P": (15, 28),
-            "K": (120, 200)
-        }
-    }
-
-    ranges = optimal_ranges.get(growth_stage, optimal_ranges["vegetative"])
-
-    n_min, n_max = ranges["N"]
-    if npk.nitrogen < n_min:
-        status["nitrogen"] = {"level": "low", "current": npk.nitrogen, "optimal": f"{n_min}-{n_max}"}
-    elif npk.nitrogen > n_max:
-        status["nitrogen"] = {"level": "high", "current": npk.nitrogen, "optimal": f"{n_min}-{n_max}"}
-    else:
-        status["nitrogen"] = {"level": "optimal", "current": npk.nitrogen, "optimal": f"{n_min}-{n_max}"}
-
-    p_min, p_max = ranges["P"]
-    if npk.phosphorus < p_min:
-        status["phosphorus"] = {"level": "low", "current": npk.phosphorus, "optimal": f"{p_min}-{p_max}"}
-    elif npk.phosphorus > p_max:
-        status["phosphorus"] = {"level": "high", "current": npk.phosphorus, "optimal": f"{p_min}-{p_max}"}
-    else:
-        status["phosphorus"] = {"level": "optimal", "current": npk.phosphorus, "optimal": f"{p_min}-{p_max}"}
-
-    k_min, k_max = ranges["K"]
-    if npk.potassium < k_min:
-        status["potassium"] = {"level": "low", "current": npk.potassium, "optimal": f"{k_min}-{k_max}"}
-    elif npk.potassium > k_max:
-        status["potassium"] = {"level": "high", "current": npk.potassium, "optimal": f"{k_min}-{k_max}"}
-    else:
-        status["potassium"] = {"level": "optimal", "current": npk.potassium, "optimal": f"{k_min}-{k_max}"}
-
-    return status
-
-
-def generate_fertilizer_plan(
+def generate_growth_recommendations(
     growth_stage: str,
-    npk_status: Dict,
     weather: str,
     temperature: Optional[float] = None,
     ph: Optional[float] = None,
     humidity: Optional[float] = None,
     weather_forecast: Optional[List[Dict]] = None
-) -> FertilizerRecommendation:
-    
+) -> GrowthRecommendation:
+
     week_plan = []
     warnings = []
     tips = []
 
-
+    # pH recommendations
     if ph is not None:
         if ph < 5.5:
             warnings.append(f"⚠️ Soil pH ({ph:.1f}) is too acidic! Apply Dolomite Lime 4 ton/ha to raise pH.")
@@ -187,6 +112,7 @@ def generate_fertilizer_plan(
         else:
             tips.append(f"✅ Soil pH ({ph:.1f}) is optimal for Scotch bonnet cultivation!")
 
+    # Humidity recommendations
     if humidity is not None:
         if humidity > 85:
             warnings.append(f"⚠️ Humidity ({humidity:.0f}%) is very high! High risk of fungal diseases (anthracnose, leaf spot).")
@@ -203,9 +129,10 @@ def generate_fertilizer_plan(
         else:
             tips.append(f"Humidity ({humidity:.0f}%) is in good range for Scotch bonnet cultivation.")
 
+    # Weather-based recommendations
     weather_factor = 1.0
     if weather == "rainy":
-        weather_factor = 0.7  
+        weather_factor = 0.7
         warnings.append("⚠️ Rainy weather - delay fertilizer application. Rain washes away nutrients.")
         tips.append("Wait 2-3 days after heavy rain before applying fertilizer.")
         tips.append("Ensure proper drainage to prevent waterlogging and root rot.")
@@ -224,10 +151,12 @@ def generate_fertilizer_plan(
             tips.append("Scotch bonnet grows best in 20-30°C range.")
             tips.append("Reduce fertilizer application in low temperatures - nutrient uptake is limited.")
 
+    # Temperature recommendations
     if temperature is not None:
         if 20 <= temperature <= 30:
             tips.append(f"✅ Temperature ({temperature:.0f}°C) is ideal for Scotch bonnet cultivation!")
 
+    # Growth stage-based fertilizer recommendations
     if growth_stage == "Early Vegetative Stage":
         base_plan = [
             {
@@ -270,10 +199,6 @@ def generate_fertilizer_plan(
             }
         ]
 
-        if npk_status["nitrogen"]["level"] == "low":
-            base_plan[0]["amount"] = "12-14 grams per plant"
-            warnings.append("Nitrogen level is low! Urea amount has been increased.")
-
         tips.extend([
             "Potassium application should be split into 3 installments.",
             "Monitor leaf color - dark green indicates good nitrogen levels.",
@@ -305,20 +230,6 @@ def generate_fertilizer_plan(
                 "watering": "Do not water after spraying"
             }
         ]
-
-        if npk_status["phosphorus"]["level"] == "low":
-            base_plan.insert(1, {
-                "day": "Tuesday",
-                "fertilizer_type": "TSP (Triple Super Phosphate 0-46-0)",
-                "amount": "5-7 grams per plant (top dressing)",
-                "method": "Broadcast around the base of the plant",
-                "watering": "Water thoroughly"
-            })
-            warnings.append("Phosphorus level is low! Additional phosphate added for flowering support.")
-
-        if npk_status["potassium"]["level"] == "low":
-            base_plan[1]["amount"] = "6-8 grams per plant"
-            warnings.append("Potassium level is low! Potassium increased to improve flower quality.")
 
         tips.extend([
             "Reduce nitrogen during flowering - excess N causes flower drop.",
@@ -352,19 +263,6 @@ def generate_fertilizer_plan(
             }
         ]
 
-        if npk_status["potassium"]["level"] == "low":
-            base_plan.insert(2, {
-                "day": "Thursday",
-                "fertilizer_type": "SOP (Sulphate of Potash 0-0-50)",
-                "amount": "5-7 grams per plant",
-                "method": "Broadcast around the base of the plant",
-                "watering": "Water thoroughly"
-            })
-            warnings.append("Potassium level is low! Extra potassium added to improve fruit quality and size.")
-
-        if npk_status["nitrogen"]["level"] == "high":
-            warnings.append("Nitrogen level is high! Excessive N during fruiting reduces fruit quality and delays ripening.")
-
         tips.extend([
             "This is the final nitrogen and potassium installment.",
             "Potassium (K) is critical for fruit size and quality.",
@@ -391,16 +289,9 @@ def generate_fertilizer_plan(
             }
         ]
 
-        if npk_status["nitrogen"]["level"] == "high":
-            warnings.append("⚠️ Nitrogen level is high! Stop nitrogen application - excess N delays fruit coloring and ripening.")
-
-        if npk_status["potassium"]["level"] == "low":
-            base_plan[0]["amount"] = "5-7 grams per plant"
-            warnings.append("Potassium level is low! Light potassium application added for better fruit color.")
-
         tips.extend([
             "STOP all nitrogen fertilizer during ripening stage.",
-            "All NPK fertilizer should have been completed by now.",
+            "All fertilizer applications should have been completed by now.",
             "Light potassium application improves fruit color and flavor.",
             "Calcium and Boron sprays increase shelf life.",
             "Reduce watering frequency to enhance flavor and pungency.",
@@ -412,7 +303,7 @@ def generate_fertilizer_plan(
         base_plan = [
             {
                 "day": "Monday",
-                "fertilizer_type": "NPK 15-15-15 (Balanced)",
+                "fertilizer_type": "Balanced Fertilizer (15-15-15)",
                 "amount": "10-12 grams per plant",
                 "method": "Broadcast around the base of the plant",
                 "watering": "Water thoroughly after fertilizer application"
@@ -431,11 +322,12 @@ def generate_fertilizer_plan(
 
         tips.extend([
             "Take a photo with clear leaves, flowers, or fruits for growth stage detection.",
-            "Balanced NPK fertilizer is good for general growth.",
+            "Balanced fertilizer is good for general growth.",
             "Regular organic compost application improves soil quality.",
             "Manually check plant growth stage and choose from the above recommendations."
         ])
 
+    # Weather forecast adjustments
     day_to_index = {
         "Monday": 0,
         "Tuesday": 1,
@@ -446,7 +338,7 @@ def generate_fertilizer_plan(
     }
 
     for day_plan in base_plan:
-        day_weather_factor = weather_factor  
+        day_weather_factor = weather_factor
         day_specific_warning = None
 
         if weather_forecast and day_plan["day"] in day_to_index:
@@ -501,9 +393,8 @@ def generate_fertilizer_plan(
             warnings.append(f"⚠️ {rainy_days} rainy days expected this week! Ensure proper drainage.")
             tips.append("Apply organic mulch during rainy weeks - it reduces soil erosion.")
 
-    return FertilizerRecommendation(
+    return GrowthRecommendation(
         week_plan=base_plan,
-        npk_status=npk_status,
         warnings=warnings,
         tips=tips
     )

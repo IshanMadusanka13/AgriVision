@@ -79,6 +79,13 @@ export default function HomeScreen() {
       color: '#10b981',
     },
     {
+      title: 'ArUco Markers',
+      description: 'Generate markers for plant tracking',
+      icon: '🏷️',
+      route: '/growth/marker-generator',
+      color: '#8b5cf6',
+    },
+    {
       title: 'Disease Detection',
       description: 'Identify plant diseases',
       icon: '🔬',
