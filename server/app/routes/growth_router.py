@@ -712,7 +712,7 @@ async def check_marker(file: UploadFile = File(...)):
         if img is None:
             raise HTTPException(status_code=400, detail="Failed to read image file.")
 
-        from app.services.plant_tracking_service import PlantTrackingService
+        from services.plant_tracking_service import PlantTrackingService
         tracking = PlantTrackingService(
             yolo_model_path=None,
             aruco_marker_size_cm=3.6,
