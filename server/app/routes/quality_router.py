@@ -6,7 +6,8 @@ from services.batch_service import (
     save_batch_to_supabase,
     get_all_batches,
     get_batch_by_id,
-    get_latest_batches
+    get_latest_batches,
+    delete_batch
 )
 
 router = APIRouter()
@@ -89,3 +90,14 @@ async def get_latest(
     """
     batches = await get_latest_batches(user_id=user_id, count=count)
     return {"success": True, "batches": batches}
+
+
+@router.delete("/batch/{batch_uuid}")
+async def remove_batch(
+    batch_uuid: str,
+    user_id: str = Query("public_user")
+):
+    """
+    Delete a specific batch by UUID
+    """
+    return await delete_batch(batch_uuid=batch_uuid, user_id=user_id)
