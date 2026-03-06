@@ -228,7 +228,7 @@ export default function SessionDetailsScreen() {
             <Text style={s.cardTitle}>📏 Plant Height</Text>
             <View style={s.heightNumRow}>
               <Text style={[s.heightBig, { color: info.color }]}>
-                {Number(session.plant_height_cm).toFixed(1)}
+                {Math.floor(Number(session.plant_height_cm))}
               </Text>
               <Text style={s.heightUnit}>cm</Text>
             </View>
@@ -249,17 +249,17 @@ export default function SessionDetailsScreen() {
             <View style={[s.detBox, { backgroundColor: '#f0fdf4' }]}>
               <Text style={s.detEmoji}>🍃</Text>
               <Text style={[s.detNum, { color: '#16a34a' }]}>{session.leaf_count}</Text>
-              <Text style={[s.detLabel, { color: '#4ade80' }]}>Leaves</Text>
+              <Text style={[s.detLabel, { color: '#4ade80' }]}>Approx. Leaves</Text>
             </View>
             <View style={[s.detBox, { backgroundColor: '#fffbeb' }]}>
               <Text style={s.detEmoji}>🌸</Text>
               <Text style={[s.detNum, { color: '#d97706' }]}>{session.flower_count}</Text>
-              <Text style={[s.detLabel, { color: '#fbbf24' }]}>Flowers</Text>
+              <Text style={[s.detLabel, { color: '#fbbf24' }]}>Approx. Flowers</Text>
             </View>
             <View style={[s.detBox, { backgroundColor: '#fff7ed' }]}>
               <Text style={s.detEmoji}>🌶️</Text>
               <Text style={[s.detNum, { color: '#ea580c' }]}>{session.fruit_count}</Text>
-              <Text style={[s.detLabel, { color: '#fb923c' }]}>Fruits</Text>
+              <Text style={[s.detLabel, { color: '#fb923c' }]}>Approx. Fruits</Text>
             </View>
           </View>
         </View>
@@ -380,7 +380,7 @@ export default function SessionDetailsScreen() {
                           }]} />
                         </View>
                         <Text style={[s.timelineHeightText, { color: hInfo.color }]}>
-                          {h.plant_height_cm.toFixed(1)} cm
+                          {Math.floor(h.plant_height_cm)} cm
                         </Text>
                       </View>
                     )}
