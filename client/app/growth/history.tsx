@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -49,8 +49,8 @@ export default function HistoryScreen() {
     try {
       const email = await AsyncStorage.getItem('userEmail');
       if (!email) {
-        Alert.alert('Error', 'Please login first');
-        router.replace('/(auth)/login');
+        Alert.alert('Error', 'Please return to Home');
+        router.replace('/');
         return;
       }
 

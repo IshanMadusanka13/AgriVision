@@ -139,7 +139,7 @@ export default function Step3Screen() {
   const resetField = () => {
     setLayoutResult(null);
     setFertilizerRecommendation(null);
-    router.push('/planting/planting');
+    router.push('/planting');
   };
 
   return (

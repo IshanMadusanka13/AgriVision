@@ -14,8 +14,8 @@ export default function AdminLayout() {
     try {
       const userDataString = await AsyncStorage.getItem('userData');
       if (!userDataString) {
-        Alert.alert('Access Denied', 'Please login first');
-        router.replace('/(auth)/login');
+        Alert.alert('Access Denied', 'Please return to Home');
+        router.replace('/');
         return;
       }
 
@@ -27,7 +27,7 @@ export default function AdminLayout() {
       }
     } catch (error) {
       console.error('Error checking admin access:', error);
-      router.replace('/(auth)/login');
+      router.replace('/');
     }
   };
 

@@ -25,8 +25,8 @@ export default function AdminDashboard() {
     try {
       const userDataString = await AsyncStorage.getItem('userData');
       if (!userDataString) {
-        Alert.alert('Error', 'Please login first');
-        router.replace('/(auth)/login' as any);
+        Alert.alert('Error', 'Please return to Home');
+        router.replace('/' as any);
         return;
       }
 
@@ -97,7 +97,7 @@ export default function AdminDashboard() {
         onPress={async () => {
           await AsyncStorage.removeItem('userData');
           await AsyncStorage.removeItem('authToken');
-          router.replace('/(auth)/login' as any);
+          router.replace('/' as any);
         }}
       >
         <Text style={styles.logoutText}>Logout</Text>

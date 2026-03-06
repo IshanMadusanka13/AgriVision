@@ -4,60 +4,21 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [userName, setUserName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [userName, setUserName] = useState('User');
 
-  // Check if user is logged in
+  // No authentication check
   useEffect(() => {
-    checkAuth();
+    setIsLoading(false);
   }, []);
-
-  const checkAuth = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const name = await AsyncStorage.getItem('userName');
-
-      if (!token) {
-        // Not logged in, redirect to login
-        router.replace('/(auth)/login' as any);
-      } else {
-        // Logged in, show the home screen
-        setUserName(name || 'User');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Auth check error:', error);
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.clear();
-            router.replace('/(auth)/login' as any);
-          },
-        },
-      ]
-    );
-  };
 
   if (isLoading) {
     return (
@@ -96,7 +57,7 @@ export default function HomeScreen() {
       title: 'Planting',
       description: 'Feature in development',
       icon: '📈',
-      route: '/planting/planting',
+      route: '/planting',
       color: '#6b7280',
     },
     {
@@ -105,12 +66,11 @@ export default function HomeScreen() {
       icon: '📊',
       route: '/growth/history',
       color: '#3b82f6',
-    }
+    },
   ];
 
   const handleNavigation = (route: string) => {
     if (route === '/') {
-      // Show alert for coming soon features
       alert('This feature is coming soon!');
       return;
     }
@@ -119,56 +79,57 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.title}>AgriVision</Text>
-              <Text style={styles.subtitle}>AI-Powered Agriculture Assistant</Text>
+              <Text style={styles.subtitle}>
+                AI-Powered Agriculture Assistant
+              </Text>
             </View>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
           </View>
-          {userName && (
-            <Text style={styles.welcomeUser}>Welcome back, {userName}!</Text>
-          )}
+
+          <Text style={styles.welcomeUser}>
+            Welcome back, {userName}!
+          </Text>
         </View>
 
-        {/* Main Content */}
+        {/* Content */}
         <View style={styles.content}>
           <Text style={styles.welcomeText}>
-            Welcome to AgriVision. Select a feature to get started.
+            Select a feature to get started.
           </Text>
 
-          {/* Menu Grid */}
           <View style={styles.menuGrid}>
             {menuItems.map((item, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.menuCard, { borderTopColor: item.color }]}
+                style={[
+                  styles.menuCard,
+                  { borderTopColor: item.color },
+                ]}
                 onPress={() => handleNavigation(item.route)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: `${item.color}15` },
+                  ]}
+                >
                   <Text style={styles.icon}>{item.icon}</Text>
                 </View>
+
                 <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuDescription}>{item.description}</Text>
+                <Text style={styles.menuDescription}>
+                  {item.description}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>AgriVision</Text>
-          <Text style={styles.footerText}>v1.0</Text>
         </View>
-      </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -179,125 +140,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
-  scrollView: {
-    flex: 1,
-  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6b7280',
+    color: '#374151',
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 30,
-    paddingHorizontal: 24,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#10b981',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  logoutButton: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  welcomeUser: {
-    fontSize: 14,
-    color: '#10b981',
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 8,
   },
   title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#ffffff',
   },
   subtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#d1fae5',
+  },
+  welcomeUser: {
+    marginTop: 16,
     fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
+    fontWeight: '600',
+    color: '#ffffff',
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 30,
+    padding: 20,
   },
   welcomeText: {
     fontSize: 16,
     color: '#4b5563',
-    textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 22,
+    marginBottom: 16,
   },
   menuGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   menuCard: {
-    width: '48%',
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
     borderTopWidth: 4,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
-    alignItems: 'center',
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   icon: {
-    fontSize: 28,
+    fontSize: 22,
   },
   menuTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
-    textAlign: 'center',
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
   },
   menuDescription: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  footer: {
-    marginTop: 'auto',
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginBottom: 4,
+    lineHeight: 20,
   },
 });
