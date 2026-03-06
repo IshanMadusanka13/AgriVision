@@ -182,7 +182,7 @@ export default function EnvironmentalInputScreen() {
             <View style={styles.heightLabelRow}>
               <Text style={styles.heightLabel}>📏  Plant Height</Text>
               <Text style={[styles.heightValue, { color: meta.color }]}>
-                {detection.plant_height_cm} cm
+                {Math.floor(detection.plant_height_cm)} cm
               </Text>
             </View>
             <View style={styles.heightBarBg}>
@@ -202,17 +202,17 @@ export default function EnvironmentalInputScreen() {
           <View style={[styles.countChip, { backgroundColor: '#f0fdf4', borderColor: '#10b981' }]}>
             <Text style={styles.countEmoji}>🍃</Text>
             <Text style={styles.countNum}>{detection.leaves_count}</Text>
-            <Text style={styles.countLbl}>Leaves</Text>
+            <Text style={styles.countLbl}>Approx. Leaves</Text>
           </View>
           <View style={[styles.countChip, { backgroundColor: '#fdf4ff', borderColor: '#d946ef' }]}>
             <Text style={styles.countEmoji}>🌸</Text>
             <Text style={styles.countNum}>{detection.flowers_count}</Text>
-            <Text style={styles.countLbl}>Flowers</Text>
+            <Text style={styles.countLbl}>Approx. Flowers</Text>
           </View>
           <View style={[styles.countChip, { backgroundColor: '#fff7ed', borderColor: '#f97316' }]}>
             <Text style={styles.countEmoji}>🌶️</Text>
             <Text style={styles.countNum}>{detection.fruits_count}</Text>
-            <Text style={styles.countLbl}>Fruits</Text>
+            <Text style={styles.countLbl}>Approx. Fruits</Text>
           </View>
         </View>
       </View>

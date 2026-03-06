@@ -300,7 +300,7 @@ function HistoryCard({ item, onPress }: { item: HistoryItem; onPress: () => void
                 backgroundColor: info.color,
               }]} />
             </View>
-            <Text style={[card.heightValue, { color: info.color }]}>{item.plant_height_cm} cm</Text>
+            <Text style={[card.heightValue, { color: info.color }]}>{Math.floor(item.plant_height_cm)} cm</Text>
           </View>
         )}
 

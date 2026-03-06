@@ -330,9 +330,31 @@ export const get_detection_by_id = async (
 //-------------------------------------------------
 //-------------------Growth------------------------
 //-------------------------------------------------
-export const detectPlant = async (imageUri: string): Promise<DetectionResult> => {
+export interface MarkerCheckResult {
+  detected: boolean;
+  marker_id: number | null;
+  angle_ok: boolean;
+  skew_ratio: number | null;
+  message: string;
+}
+
+export const checkMarker = async (imageUri: string): Promise<MarkerCheckResult> => {
   try {
     const formData = createImageFormData(imageUri);
+    const response = await api.post<MarkerCheckResult>('/api/growth/check-marker', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 15000,
+    });
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Marker check');
+  }
+};
+
+export const detectPlant = async (imageUri: string, userEmail?: string | null): Promise<DetectionResult> => {
+  try {
+    const formData = createImageFormData(imageUri);
+    if (userEmail) formData.append('user_email', userEmail);
     const response = await api.post<DetectionResult>('/api/growth/detect', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120000, // 2 min — ML model inference takes time

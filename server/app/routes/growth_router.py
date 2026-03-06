@@ -119,7 +119,7 @@ async def get_forecast(latitude: float, longitude: float, days: int = 7):
 
 
 @router.post("/detect", response_model=DetectionResult)
-async def detect_plant(file: UploadFile = File(...)):
+async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] = Form(None)):
 
     try:
         contents = await file.read()
@@ -230,6 +230,20 @@ async def detect_plant(file: UploadFile = File(...)):
                         plant_height_cm = (ground_level_y - highest_y) / pixel_ratio
                         plant_height_cm = round(plant_height_cm, 1)
                         print(f"[ArUco] ✓ Plant height: {plant_height_cm} cm")
+
+                        # Height monotonicity guard
+                        if plant_id is not None and user_email:
+                            try:
+                                _user = supabase_service.get_user_by_email(user_email)
+                                if _user:
+                                    prev_max = supabase_service.get_max_height_for_plant(
+                                        _user["id"], plant_id
+                                    )
+                                    if prev_max is not None and plant_height_cm < prev_max:
+                                        print(f"[height-guard] new={plant_height_cm} < prev_max={prev_max} → clamping to {prev_max}")
+                                        plant_height_cm = prev_max
+                            except Exception as hg_err:
+                                print(f"[height-guard] skipped: {hg_err}")
 
                         # Draw height visualization on annotated image
                         if annotated_img is not None and debug_image_path:
@@ -427,6 +441,25 @@ async def full_analysis(
                     print(f"[full_analysis] plant_id={fa_plant_id} height={fa_plant_height_cm}cm")
         except Exception as aruco_err:
             print(f"[full_analysis] ArUco skipped: {aruco_err}")
+
+        # ── Height monotonicity guard ─────────────────────────────────────────
+        # A plant can only grow taller. If the new measurement is below the
+        # previously recorded maximum for this plant, keep the previous max.
+        if fa_plant_id is not None and fa_plant_height_cm is not None and user_email:
+            try:
+                _user = supabase_service.get_user_by_email(user_email)
+                if _user:
+                    prev_max = supabase_service.get_max_height_for_plant(
+                        _user["id"], fa_plant_id
+                    )
+                    if prev_max is not None and fa_plant_height_cm < prev_max:
+                        print(
+                            f"[height-guard] new={fa_plant_height_cm} < prev_max={prev_max} "
+                            f"→ clamping to {prev_max}"
+                        )
+                        fa_plant_height_cm = prev_max
+            except Exception as hg_err:
+                print(f"[height-guard] skipped: {hg_err}")
 
         from pydantic import BaseModel
         class DetectionResult(BaseModel):
@@ -656,6 +689,95 @@ async def get_all_plants(user_email: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get plants: {str(e)}")
+
+
+@router.post("/check-marker")
+async def check_marker(file: UploadFile = File(...)):
+    """
+    Lightweight endpoint: detect the ArUco marker in an image and return
+    whether the camera angle is acceptable for height measurement.
+
+    Returns:
+        detected      – marker found in image
+        marker_id     – id of the detected marker (or null)
+        angle_ok      – True when perspective distortion is within tolerance
+        skew_ratio    – top_edge_px / bot_edge_px  (1.0 = perfect, <0.60 = too steep)
+        message       – human-readable guidance
+    """
+    try:
+        contents = await file.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            raise HTTPException(status_code=400, detail="Failed to read image file.")
+
+        from app.services.plant_tracking_service import PlantTrackingService
+        tracking = PlantTrackingService(
+            yolo_model_path=None,
+            aruco_marker_size_cm=3.6,
+            aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL,
+        )
+        marker_info = tracking.detect_aruco_marker(img)
+
+        if marker_info is None:
+            return {
+                "detected": False,
+                "marker_id": None,
+                "angle_ok": False,
+                "skew_ratio": None,
+                "message": "Marker not visible. Make sure the ArUco marker is clearly in frame.",
+            }
+
+        # Compute top / bottom edge widths (perspective skew indicator)
+        c = marker_info["corners"].astype(float)
+        by_y = sorted(c, key=lambda p: p[1])
+        top_two, bot_two = by_y[:2], by_y[2:]
+        top_edge_px = abs(top_two[0][0] - top_two[1][0])
+        bot_edge_px  = abs(bot_two[0][0]  - bot_two[1][0])
+
+        if max(top_edge_px, bot_edge_px) < 5:
+            return {
+                "detected": True,
+                "marker_id": marker_info["plant_id"],
+                "angle_ok": False,
+                "skew_ratio": None,
+                "message": "Marker is too small. Move closer to the marker.",
+            }
+
+        skew_ratio = round(
+            float(min(top_edge_px, bot_edge_px)) / float(max(top_edge_px, bot_edge_px)), 3
+        )
+
+        # Also check marker height vs width (extreme side-angle)
+        marker_h_px = float(marker_info["pixel_size"])
+        marker_w_avg = (float(top_edge_px) + float(bot_edge_px)) / 2
+        aspect = round(marker_h_px / max(marker_w_avg, 1.0), 3)
+
+        SKEW_OK   = 0.60   # top/bottom edge ratio threshold
+        ASPECT_OK = (0.40, 2.50)  # height/width range
+
+        angle_ok = skew_ratio >= SKEW_OK and ASPECT_OK[0] <= aspect <= ASPECT_OK[1]
+
+        if angle_ok:
+            message = "Good angle! Marker is clearly visible."
+        elif skew_ratio < SKEW_OK:
+            message = "Camera angle is too steep. Move the camera to be more level with the marker."
+        else:
+            message = "Marker appears distorted. Try to face the marker more directly."
+
+        return {
+            "detected": True,
+            "marker_id": int(marker_info["plant_id"]),
+            "angle_ok": bool(angle_ok),
+            "skew_ratio": skew_ratio,
+            "message": message,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Marker check error: {str(e)}")
 
 
 @router.get("/session/{session_id}")

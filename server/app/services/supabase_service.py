@@ -238,6 +238,22 @@ class SupabaseService:
             print(f"Error uploading image: {e}")
             return None
 
+    def get_max_height_for_plant(self, user_id: str, plant_id: int) -> Optional[float]:
+        """Return the highest recorded plant_height_cm for a given plant across all sessions."""
+        response = (
+            self.client.table("analysis_sessions")
+            .select("plant_height_cm")
+            .eq("user_id", user_id)
+            .eq("plant_id", plant_id)
+            .not_.is_("plant_height_cm", "null")
+            .order("plant_height_cm", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return float(response.data[0]["plant_height_cm"])
+        return None
+
     def save_complete_analysis(
         self,
         user_id: str,
