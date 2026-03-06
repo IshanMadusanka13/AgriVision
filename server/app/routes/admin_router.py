@@ -5,9 +5,9 @@ import json
 import os
 
 try:
-    from app.services.supabase_service import SupabaseService
+    from services.supabase_service import SupabaseService
 except ImportError:
-    from app.services.supabase_service import SupabaseService
+    from services.supabase_service import SupabaseService
 
 router = APIRouter()
 supabase_service = SupabaseService()

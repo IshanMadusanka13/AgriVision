@@ -1,7 +1,7 @@
 # app/models/planting/field_models.py
 from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, Text
 from sqlalchemy.sql import func
-from app.configs.database import Base, get_db
+from configs.database import Base, get_db
 
 class Field(Base):
     """Model for storing field information"""

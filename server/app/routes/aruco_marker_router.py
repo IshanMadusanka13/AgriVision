@@ -163,7 +163,7 @@ async def generate_markers(request: MarkerGenerateRequest):
         # Initialize database service if needed
         if request.save_to_db and request.user_email:
             try:
-                from app.services.supabase_service import SupabaseService
+                from services.supabase_service import SupabaseService
                 supabase_service = SupabaseService()
 
                 # Get user
@@ -377,7 +377,7 @@ async def get_user_markers(user_email: str):
         GET /api/aruco/user-markers/user@example.com
     """
     try:
-        from app.services.supabase_service import SupabaseService
+        from services.supabase_service import SupabaseService
         supabase_service = SupabaseService()
 
         user = supabase_service.get_user_by_email(user_email)
@@ -408,7 +408,7 @@ async def get_available_ids(user_email: str, limit: int = 50):
         GET /api/aruco/available-ids/user@example.com?limit=50
     """
     try:
-        from app.services.supabase_service import SupabaseService
+        from services.supabase_service import SupabaseService
         supabase_service = SupabaseService()
 
         user = supabase_service.get_user_by_email(user_email)

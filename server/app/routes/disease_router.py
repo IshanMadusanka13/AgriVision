@@ -2,8 +2,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
 from PIL import Image
 import io
-from app.services.disease_service import disease_service
-from app.services.supabase_service import SupabaseService
+from services.disease_service import disease_service
+from services.supabase_service import SupabaseService
 
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png"]
 

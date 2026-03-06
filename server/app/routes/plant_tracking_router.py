@@ -14,9 +14,9 @@ from datetime import datetime
 import io
 from PIL import Image
 
-from app.services.plant_tracking_service import PlantTrackingService
-from app.services.supabase_service import SupabaseService
-from app.configs.model_loader import get_growth_model
+from services.plant_tracking_service import PlantTrackingService
+from services.supabase_service import SupabaseService
+from configs.model_loader import get_growth_model
 
 router = APIRouter(prefix="/api/plant-tracking", tags=["Plant Tracking"])
 

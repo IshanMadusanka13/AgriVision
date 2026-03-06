@@ -20,19 +20,19 @@ def _patched_torch_load(*args, **kwargs):
 torch.load = _patched_torch_load
 
 try:
-    from app.services.weather_service import weather_service
+    from services.weather_service import weather_service
 except ImportError:
-    from app.services.weather_service import weather_service
+    from services.weather_service import weather_service
 
 try:
-    from app.services.growth_recommendations_service import (
+    from services.growth_recommendations_service import (
         GrowthRecommendation,
         DetectionCounts,
         determine_growth_stage,
         generate_growth_recommendations
     )
 except ImportError:
-    from app.services.growth_recommendations_service import (
+    from services.growth_recommendations_service import (
         GrowthRecommendation,
         DetectionCounts,
         determine_growth_stage,
@@ -40,9 +40,9 @@ except ImportError:
     )
 
 try:
-    from app.services.supabase_service import SupabaseService
+    from services.supabase_service import SupabaseService
 except ImportError:
-    from app.services.supabase_service import SupabaseService
+    from services.supabase_service import SupabaseService
 
 supabase_service = SupabaseService()
 
@@ -147,7 +147,7 @@ async def detect_plant(file: UploadFile = File(...)):
         plant_id = None
 
         try:
-            from app.services.plant_tracking_service import PlantTrackingService
+            from services.plant_tracking_service import PlantTrackingService
             tracking_service = PlantTrackingService(
                 yolo_model_path=None,
                 aruco_marker_size_cm=3.6,
@@ -387,7 +387,7 @@ async def full_analysis(
         fa_plant_id = None
         fa_plant_height_cm = None
         try:
-            from app.services.plant_tracking_service import PlantTrackingService
+            from services.plant_tracking_service import PlantTrackingService
             _tracking = PlantTrackingService(
                 yolo_model_path=None,
                 aruco_marker_size_cm=3.6,

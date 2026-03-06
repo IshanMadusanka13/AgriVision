@@ -1,7 +1,7 @@
 # app/models/planting/planting_models.py
 from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, Boolean, Text
 from sqlalchemy.sql import func
-from app.configs.database import Base, get_db  # Import from YOUR existing database
+from configs.database import Base, get_db  # Import from YOUR existing database
 
 class PlantingCalculation(Base):
     """Model for storing planting calculations - matches YOUR pattern"""

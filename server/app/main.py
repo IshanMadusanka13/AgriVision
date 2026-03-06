@@ -2,15 +2,15 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from app.routes.disease_router import router as upload_router
-from app.routes.growth_router import router as growth_router
-from app.routes.quality_router import router as quality_router
-from app.routes.auth_router import router as auth_router
-from app.routes.admin_router import router as admin_router
-from app.routes.planting.field_management_router import router as field_management_router
-from app.routes.planting.layout_generator_router import router as layout_generator_router
-from app.routes.planting.planting_router import router as planting_router
-from app.routes.aruco_marker_router import router as aruco_marker_router
+from routes.disease_router import router as upload_router
+from routes.growth_router import router as growth_router
+from routes.quality_router import router as quality_router
+from routes.auth_router import router as auth_router
+from routes.admin_router import router as admin_router
+from routes.planting.field_management_router import router as field_management_router
+from routes.planting.layout_generator_router import router as layout_generator_router
+from routes.planting.planting_router import router as planting_router
+from routes.aruco_marker_router import router as aruco_marker_router
 
 app = FastAPI(title="AgriVision API", version="1.0.0")
 app.add_middleware(

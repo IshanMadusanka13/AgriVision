@@ -4,7 +4,7 @@ import shutil
 from typing import List
 from fastapi import UploadFile
 from PIL import Image
-from app.configs.model_loader import quality_model
+from configs.model_loader import quality_model
 
 CLASS_NAMES = [
     "Category A",

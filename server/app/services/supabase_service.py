@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, date
 from uuid import UUID, uuid4
 import os
-from app.configs.supabase_client import get_supabase_client
+from configs.supabase_client import get_supabase_client
 
 
 class SupabaseService:
