@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Platform,
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -147,12 +146,15 @@ export default function MarkerGeneratorScreen() {
 
   const handlePrintMarker = async (marker: GeneratedMarker) => {
     try {
+      // Fetch clean marker without embedded border so img CSS size = exact ArUco size
+      const cleanMarker = await getMarkerPreview(marker.marker_id, marker.size_cm);
+      const sizeCm = marker.size_cm;
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=210mm, initial-scale=1.0">
             <style>
               @page {
                 size: A4 portrait;
@@ -166,7 +168,6 @@ export default function MarkerGeneratorScreen() {
               html, body {
                 margin: 0;
                 padding: 0;
-                width: 210mm;
                 font-family: Arial, sans-serif;
               }
               .page {
@@ -184,8 +185,8 @@ export default function MarkerGeneratorScreen() {
               }
               img {
                 display: block;
-                width: ${marker.print_size_cm}cm;
-                height: ${marker.print_size_cm}cm;
+                width: ${sizeCm}cm;
+                height: ${sizeCm}cm;
                 image-rendering: pixelated;
                 image-rendering: -moz-crisp-edges;
                 image-rendering: crisp-edges;
@@ -219,11 +220,11 @@ export default function MarkerGeneratorScreen() {
           <body>
             <div class="page">
               <div class="marker-box">
-                <img src="data:image/png;base64,${marker.image_base64}" alt="ArUco Marker ${marker.marker_id}" />
+                <img src="data:image/png;base64,${cleanMarker.image_base64}" alt="ArUco Marker ${marker.marker_id}" />
               </div>
               <div class="label">
                 <h2>Plant ID: ${marker.marker_id}</h2>
-                <p>Actual size: ${marker.size_cm} cm x ${marker.size_cm} cm</p>
+                <p>Actual size: ${sizeCm}cm x ${sizeCm}cm</p>
               </div>
               <div class="caution">
                 Print at 100% scale &mdash; Do NOT fit to page or scale to paper
@@ -284,7 +285,6 @@ export default function MarkerGeneratorScreen() {
         <html>
           <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=210mm, initial-scale=1.0">
             <style>
               @page {
                 size: A4 portrait;
@@ -298,7 +298,6 @@ export default function MarkerGeneratorScreen() {
               html, body {
                 margin: 0;
                 padding: 0;
-                width: 210mm;
                 font-family: Arial, sans-serif;
               }
               .doc-header {

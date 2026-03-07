@@ -165,7 +165,7 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                 # Calculate plant height if we have leaf detections
                 if counts.leaf > 0:
                     # Collect all leaf bounding-box tops from YOLO
-                    results = model.predict(img, conf=0.3)
+                    results = model.predict(img, conf=0.1)
                     leaf_tops = []  # (top_y, center_x) per detection
 
                     for result in results:
@@ -719,6 +719,7 @@ async def check_marker(file: UploadFile = File(...)):
             aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL,
         )
         marker_info = tracking.detect_aruco_marker(img)
+        print(f"[check_marker] marker_info = {marker_info}")
 
         if marker_info is None:
             return {

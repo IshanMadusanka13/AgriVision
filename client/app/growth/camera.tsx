@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Accelerometer } from 'expo-sensors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -69,6 +70,25 @@ export default function CameraScreen() {
     });
     return () => sub.remove();
   }, [selectedImage]);
+
+  // ── Gallery picker ─────────────────────────────────────────────────────────
+  const pickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setSelectedImage(result.assets[0].uri);
+      setDetectionResult(null);
+      setMarkerState('idle');
+      setMarkerMsg('');
+    }
+  };
 
   // ── Capture ────────────────────────────────────────────────────────────────
   const capturePhoto = async () => {
@@ -278,6 +298,11 @@ export default function CameraScreen() {
 
           {/* Capture button row */}
           <View style={styles.captureRow}>
+            <TouchableOpacity style={styles.galleryBtn} onPress={pickFromGallery}>
+              <Text style={styles.galleryBtnIcon}>🖼️</Text>
+              <Text style={styles.galleryBtnText}>Gallery</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.captureBtn, !isAngleOk && styles.captureBtnDisabled]}
               onPress={capturePhoto}
@@ -285,10 +310,12 @@ export default function CameraScreen() {
             >
               <View style={[styles.captureInner, !isAngleOk && styles.captureInnerDisabled]} />
             </TouchableOpacity>
-            {!isAngleOk && (
-              <Text style={styles.captureHint}>Adjust angle to unlock</Text>
-            )}
+
+            <View style={styles.galleryPlaceholder} />
           </View>
+          {!isAngleOk && (
+            <Text style={styles.captureHint}>Adjust angle to unlock camera</Text>
+          )}
 
           {/* Tips */}
           <View style={styles.tipsRow}>
@@ -572,9 +599,12 @@ const styles = StyleSheet.create({
   // Capture button row
   captureRow: {
     position: 'absolute',
-    bottom: 32,
+    bottom: 48,
     left: 0, right: 0,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 32,
   },
   captureBtn: {
     width: 76, height: 76,
@@ -604,6 +634,24 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  galleryBtn: {
+    width: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryBtnIcon: {
+    fontSize: 28,
+  },
+  galleryBtnText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  galleryPlaceholder: {
+    width: 64,
   },
 
   // Tips row

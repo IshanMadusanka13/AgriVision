@@ -5,6 +5,23 @@ import numpy as np
 from datetime import datetime
 import os
 
+try:
+    from services.supabase_service import SupabaseService
+except ImportError:
+    from services.supabase_service import SupabaseService
+
+_supabase = SupabaseService()
+
+# Maps snake_case stage keys (from DB) to display names used in growth_router
+_STAGE_KEY_TO_DISPLAY = {
+    "early_vegetative": "Early Vegetative Stage",
+    "vegetative": "Vegetative Stage",
+    "flowering": "Flowering Stage",
+    "fruiting": "Fruiting Stage",
+    "ripening": "Ripening/Harvesting Stage",
+    "general": "General",
+}
+
 
 # Models
 class GrowthRecommendation(BaseModel):
@@ -20,6 +37,100 @@ class DetectionCounts(BaseModel):
     ripening: int
 
 
+def _fmt(template: str, **kwargs) -> str:
+    """Format a message template; silently ignore missing/extra keys."""
+    try:
+        return template.format(**kwargs)
+    except (KeyError, ValueError):
+        return template
+
+
+def _load_condition_messages() -> Dict[str, Dict[str, List[str]]]:
+    """Returns {condition_key: {'warnings': [...], 'tips': [...]}} from DB."""
+    try:
+        response = _supabase.client.table("condition_messages") \
+            .select("condition_key, message_type, message") \
+            .order("condition_key").order("sort_order").execute()
+
+        result: Dict[str, Dict[str, List[str]]] = {}
+        for row in response.data:
+            key = row["condition_key"]
+            mtype = row["message_type"]
+            if key not in result:
+                result[key] = {"warnings": [], "tips": []}
+            if mtype == "warning":
+                result[key]["warnings"].append(row["message"])
+            elif mtype == "tip":
+                result[key]["tips"].append(row["message"])
+        return result
+    except Exception as e:
+        print(f"[condition_messages] DB read failed: {e}")
+    return {}
+
+
+def _load_stage_tips() -> Dict[str, List[str]]:
+    """Returns {display_stage_name: [tip, ...]} mapping from DB."""
+    try:
+        response = _supabase.client.table("growth_stage_tips") \
+            .select("stage, tip") \
+            .order("stage").order("sort_order").execute()
+
+        result: Dict[str, List[str]] = {}
+        for row in response.data:
+            display_name = _STAGE_KEY_TO_DISPLAY.get(row["stage"])
+            if display_name:
+                if display_name not in result:
+                    result[display_name] = []
+                result[display_name].append(row["tip"])
+        return result
+    except Exception as e:
+        print(f"[stage_tips] DB read failed: {e}")
+    return {}
+
+
+def _load_conditions_config() -> dict:
+    try:
+        response = _supabase.client.table("conditions_config") \
+            .select("ph_critical_low, ph_low, ph_high, humidity_very_high, humidity_high, humidity_low, temp_very_high, temp_high, temp_low") \
+            .limit(1).execute()
+        if response.data:
+            return response.data[0]
+    except Exception as e:
+        print(f"[conditions_config] DB read failed: {e}")
+    # Fallback defaults
+    return {
+        "ph_critical_low": 5.5, "ph_low": 6.0, "ph_high": 6.8,
+        "humidity_very_high": 85.0, "humidity_high": 75.0, "humidity_low": 50.0,
+        "temp_very_high": 32.0, "temp_high": 28.0, "temp_low": 15.0,
+    }
+
+
+def _load_fertilizer_plans() -> dict:
+    """Returns {display_stage_name: [day_plan, ...]} mapping from DB."""
+    try:
+        response = _supabase.client.table("fertilizer_plans") \
+            .select("stage, day, fertilizer_type, amount, method, watering") \
+            .order("stage").order("sort_order").execute()
+
+        result: dict = {}
+        for row in response.data:
+            display_name = _STAGE_KEY_TO_DISPLAY.get(row["stage"])
+            if display_name:
+                if display_name not in result:
+                    result[display_name] = []
+                result[display_name].append({
+                    "day": row["day"],
+                    "fertilizer_type": row["fertilizer_type"],
+                    "amount": row["amount"],
+                    "method": row["method"],
+                    "watering": row["watering"],
+                })
+        return result
+    except Exception as e:
+        print(f"[fertilizer_plans] DB read failed: {e}")
+    return {}
+
+
 def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, DetectionCounts, str, np.ndarray]:
 
     if img is None:
@@ -29,18 +140,10 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     debug_dir = "app/debug_images"
     os.makedirs(debug_dir, exist_ok=True)
 
-    input_path = os.path.join(debug_dir, f"input_{timestamp}.jpg")
-    cv2.imwrite(input_path, img)
+    cv2.imwrite(os.path.join(debug_dir, f"input_{timestamp}.jpg"), img)
 
-    # Run YOLO model inference
     results = model.predict(img, conf=0.2)
-
-    counts = {
-        "flower": 0,
-        "fruit": 0,
-        "leaf": 0,
-        "ripening": 0
-    }
+    counts = {"flower": 0, "fruit": 0, "leaf": 0, "ripening": 0}
 
     for result in results:
         for box in result.boxes:
@@ -55,14 +158,7 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
 
     avg_conf = float(results[0].boxes.conf.mean()) if len(results[0].boxes) > 0 else 0.0
 
-    is_scotch_bonnet = counts["leaf"] > 0
-
-    if not is_scotch_bonnet:
-        return "unknown", 0.0, DetectionCounts(**counts), output_path, annotated_img
-
-    total_detections = counts["leaf"] + counts["flower"] + counts["fruit"]
-
-    if total_detections == 0:
+    if counts["leaf"] == 0 or counts["leaf"] + counts["flower"] + counts["fruit"] == 0:
         return "unknown", 0.0, DetectionCounts(**counts), output_path, annotated_img
 
     confidence = min(avg_conf * 100, 100.0)
@@ -90,256 +186,88 @@ def generate_growth_recommendations(
     weather_forecast: Optional[List[Dict]] = None
 ) -> GrowthRecommendation:
 
-    week_plan = []
-    warnings = []
-    tips = []
+    warnings: List[str] = []
+    tips: List[str] = []
+
+    cond = _load_conditions_config()
+    fertilizer_plans = _load_fertilizer_plans()
+    stage_tips = _load_stage_tips()
+    cond_msgs = _load_condition_messages()
+
+    # Format values available for all message templates
+    fmt = {
+        "ph": f"{ph:.1f}" if ph is not None else "",
+        "humidity": f"{humidity:.0f}" if humidity is not None else "",
+        "temperature": f"{temperature:.0f}" if temperature is not None else "",
+        "rainy_days": "",
+        "day": "",
+    }
+
+    def _apply(key: str):
+        msgs = cond_msgs.get(key, {})
+        for w in msgs.get("warnings", []):
+            warnings.append(_fmt(w, **fmt))
+        for t in msgs.get("tips", []):
+            tips.append(_fmt(t, **fmt))
 
     # pH recommendations
     if ph is not None:
-        if ph < 5.5:
-            warnings.append(f"⚠️ Soil pH ({ph:.1f}) is too acidic! Apply Dolomite Lime 4 ton/ha to raise pH.")
-            tips.append("Apply lime 15 days before transplanting and mix well with soil.")
-            tips.append("Dolomite lime provides both Calcium and Magnesium.")
-            tips.append("Very low pH severely limits phosphorus and calcium uptake.")
-        elif ph < 6.0:
-            warnings.append(f"Soil pH ({ph:.1f}) is slightly acidic. Consider lime application for better growth.")
-            tips.append("Optimal pH for Scotch bonnet: 6.0-6.5 (research showed good results even at pH 5.9)")
-            tips.append("Apply 2-3 ton/ha dolomite lime if pH is below 5.8")
-        elif ph > 6.8:
-            warnings.append(f"⚠️ Soil pH ({ph:.1f}) is too high! Apply Gypsum (20 kg/ha) or elemental Sulfur.")
-            tips.append("High pH reduces availability of Iron, Manganese, Zinc and Boron.")
-            tips.append("Incorporate organic matter (cow dung 10 ton/ha) to lower pH gradually.")
+        if ph < cond["ph_critical_low"]:
+            _apply("ph_critical_low")
+        elif ph < cond["ph_low"]:
+            _apply("ph_low")
+        elif ph > cond["ph_high"]:
+            _apply("ph_high")
         else:
-            tips.append(f"✅ Soil pH ({ph:.1f}) is optimal for Scotch bonnet cultivation!")
+            _apply("ph_optimal")
 
     # Humidity recommendations
     if humidity is not None:
-        if humidity > 85:
-            warnings.append(f"⚠️ Humidity ({humidity:.0f}%) is very high! High risk of fungal diseases (anthracnose, leaf spot).")
-            tips.append("Improve air circulation and avoid overhead irrigation.")
-            tips.append("Apply fungicide preventively in high humidity conditions.")
-            tips.append("Reduce nitrogen application - high humidity + high N increases disease susceptibility.")
-        elif humidity > 75:
-            tips.append(f"Humidity ({humidity:.0f}%) is moderate-high. Monitor for fungal diseases.")
-            tips.append("Ensure good plant spacing for air circulation (60x50 cm recommended).")
-        elif humidity < 50:
-            warnings.append(f"Humidity ({humidity:.0f}%) is low. Increase irrigation frequency.")
-            tips.append("Low humidity may cause flower drop and reduce fruit set.")
-            tips.append("Consider light mulching to maintain soil moisture.")
+        if humidity > cond["humidity_very_high"]:
+            _apply("humidity_very_high")
+        elif humidity > cond["humidity_high"]:
+            _apply("humidity_high")
+        elif humidity < cond["humidity_low"]:
+            _apply("humidity_low")
         else:
-            tips.append(f"Humidity ({humidity:.0f}%) is in good range for Scotch bonnet cultivation.")
+            _apply("humidity_optimal")
 
     # Weather-based recommendations
     weather_factor = 1.0
     if weather == "rainy":
         weather_factor = 0.7
-        warnings.append("⚠️ Rainy weather - delay fertilizer application. Rain washes away nutrients.")
-        tips.append("Wait 2-3 days after heavy rain before applying fertilizer.")
-        tips.append("Ensure proper drainage to prevent waterlogging and root rot.")
-
-        if humidity is None or humidity > 70:
-            tips.append("Apply fungicide (Mancozeb or Copper-based) during rainy periods.")
+        _apply("weather_rainy")
     elif weather == "sunny":
-        if temperature and temperature > 32:
-            warnings.append("🌡️ High temperature! Apply fertilizer in late afternoon (4-5 PM) to avoid fertilizer burn.")
-            tips.append(f"Temperature ({temperature:.0f}°C) is high - increase watering frequency to twice daily.")
-            tips.append("Provide light shade during extreme heat (>35°C) to prevent flower drop.")
-        elif temperature and temperature > 28:
-            tips.append(f"Temperature ({temperature:.0f}°C) is optimal for Scotch bonnet growth.")
-        elif temperature and temperature < 15:
-            warnings.append(f"⚠️ Temperature ({temperature:.0f}°C) is low! Growth will slow down significantly.")
-            tips.append("Scotch bonnet grows best in 20-30°C range.")
-            tips.append("Reduce fertilizer application in low temperatures - nutrient uptake is limited.")
+        if temperature and temperature > cond["temp_very_high"]:
+            _apply("weather_hot")
+        elif temperature and temperature > cond["temp_high"]:
+            _apply("weather_warm")
+        elif temperature and temperature < cond["temp_low"]:
+            _apply("weather_cold")
 
-    # Temperature recommendations
-    if temperature is not None:
-        if 20 <= temperature <= 30:
-            tips.append(f"✅ Temperature ({temperature:.0f}°C) is ideal for Scotch bonnet cultivation!")
+    # Temperature ideal range
+    if temperature is not None and cond["temp_high"] <= temperature <= cond["temp_very_high"]:
+        _apply("temp_ideal")
 
-    # Growth stage-based fertilizer recommendations
-    if growth_stage == "Early Vegetative Stage":
-        base_plan = [
-            {
-                "day": "Monday",
-                "fertilizer_type": "TSP (Triple Super Phosphate 0-46-0)",
-                "amount": "8-10 grams per plant (basal)",
-                "method": "Mix with soil before transplanting or apply immediately after",
-                "watering": "Water thoroughly after application"
-            },
-            {
-                "day": "Thursday",
-                "fertilizer_type": "Urea (46-0-0)",
-                "amount": "6-8 grams per plant",
-                "method": "Broadcast around the base (first installment of 4)",
-                "watering": "Water thoroughly after fertilizer application"
-            }
-        ]
-        tips.extend([
-            "Apply full phosphorus dose as basal (TSP or DAP).",
-            "Nitrogen (Urea) should be split into 4 equal doses.",
-            "Apply organic compost or cow dung (200-250g per plant) as basal.",
-            "Continue this schedule until plants reach 15-20 cm in height."
-        ])
+    # Fertilizer plan from DB (tries detected stage, falls back to 'General')
+    base_plan = fertilizer_plans.get(growth_stage)
+    is_general = base_plan is None
 
-    elif growth_stage == "Vegetative Stage":
-        base_plan = [
-            {
-                "day": "Monday",
-                "fertilizer_type": "Urea (46-0-0)",
-                "amount": "8-10 grams per plant",
-                "method": "Broadcast around the base (second installment)",
-                "watering": "Water thoroughly after fertilizer application"
-            },
-            {
-                "day": "Thursday",
-                "fertilizer_type": "MOP (Muriate of Potash 0-0-60)",
-                "amount": "4-5 grams per plant",
-                "method": "Broadcast and mix with soil (first installment of 3)",
-                "watering": "Normal watering"
-            }
-        ]
-
-        tips.extend([
-            "Potassium application should be split into 3 installments.",
-            "Monitor leaf color - dark green indicates good nitrogen levels.",
-            "Apply organic mulch (100-150g) weekly to improve soil structure.",
-            "Maintain soil moisture for better nutrient uptake."
-        ])
-
-    elif growth_stage == "Flowering Stage":
-        base_plan = [
-            {
-                "day": "Monday",
-                "fertilizer_type": "Urea (46-0-0)",
-                "amount": "6-8 grams per plant",
-                "method": "Broadcast around the base (third installment)",
-                "watering": "Water carefully - avoid wetting flowers"
-            },
-            {
-                "day": "Thursday",
-                "fertilizer_type": "MOP (Muriate of Potash 0-0-60)",
-                "amount": "4-5 grams per plant",
-                "method": "Mix with soil (second installment)",
-                "watering": "Normal watering"
-            },
-            {
-                "day": "Saturday",
-                "fertilizer_type": "Calcium + Boron foliar spray",
-                "amount": "5ml per liter water",
-                "method": "Foliar spray - apply in the late afternoon",
-                "watering": "Do not water after spraying"
-            }
-        ]
-
-        tips.extend([
-            "Reduce nitrogen during flowering - excess N causes flower drop.",
-            "Phosphorus (P) and Potassium (K) are critical for flower development.",
-            "Calcium and Boron prevent flower drop and blossom end rot.",
-            "Apply Gypsum (20g per plant) if sulfur and calcium are needed."
-        ])
-
-    elif growth_stage == "Fruiting Stage":
-        base_plan = [
-            {
-                "day": "Monday",
-                "fertilizer_type": "Urea (46-0-0)",
-                "amount": "5-7 grams per plant",
-                "method": "Broadcast around the base (fourth and final installment)",
-                "watering": "Water thoroughly"
-            },
-            {
-                "day": "Wednesday",
-                "fertilizer_type": "MOP (Muriate of Potash 0-0-60)",
-                "amount": "4-5 grams per plant",
-                "method": "Mix with soil (third and final installment)",
-                "watering": "Normal watering"
-            },
-            {
-                "day": "Friday",
-                "fertilizer_type": "Calcium Nitrate + Magnesium foliar spray",
-                "amount": "7ml per liter water",
-                "method": "Foliar spray - apply in the late afternoon",
-                "watering": "Do not water after spraying"
-            }
-        ]
-
-        tips.extend([
-            "This is the final nitrogen and potassium installment.",
-            "Potassium (K) is critical for fruit size and quality.",
-            "Calcium spray increases fruit firmness and shelf life.",
-            "Apply Epsom salt (MgSO4) foliar spray if leaves show yellowing.",
-            "Reduce watering slightly to enhance fruit flavor."
-        ])
-
-    elif growth_stage == "Ripening/Harvesting Stage":
-        base_plan = [
-            {
-                "day": "Monday",
-                "fertilizer_type": "SOP (Sulphate of Potash 0-0-50)",
-                "amount": "3-5 grams per plant (optional, if needed)",
-                "method": "Broadcast around the base of the plant",
-                "watering": "Water thoroughly"
-            },
-            {
-                "day": "Thursday",
-                "fertilizer_type": "Calcium + Boron foliar spray",
-                "amount": "5-7ml per liter water",
-                "method": "Foliar spray - apply in the late afternoon",
-                "watering": "Do not water after spraying"
-            }
-        ]
-
-        tips.extend([
-            "STOP all nitrogen fertilizer during ripening stage.",
-            "All fertilizer applications should have been completed by now.",
-            "Light potassium application improves fruit color and flavor.",
-            "Calcium and Boron sprays increase shelf life.",
-            "Reduce watering frequency to enhance flavor and pungency.",
-            "Stop all fertilizers 1-2 weeks before final harvest.",
-            "Focus on pest and disease management during this stage."
-        ])
-
+    if base_plan is not None:
+        base_plan = [dict(entry) for entry in base_plan]
+        tips.extend(stage_tips.get(growth_stage, []))
     else:
-        base_plan = [
-            {
-                "day": "Monday",
-                "fertilizer_type": "Balanced Fertilizer (15-15-15)",
-                "amount": "10-12 grams per plant",
-                "method": "Broadcast around the base of the plant",
-                "watering": "Water thoroughly after fertilizer application"
-            },
-            {
-                "day": "Thursday",
-                "fertilizer_type": "Organic Compost",
-                "amount": "100-150 grams per plant",
-                "method": "Apply around the base and mix with soil",
-                "watering": "Normal watering"
-            }
-        ]
-
-        warnings.append("⚠️ Plant not detected! Providing a general fertilizer plan.")
-        warnings.append("Upload a clear plant photo for better recommendations.")
-
-        tips.extend([
-            "Take a photo with clear leaves, flowers, or fruits for growth stage detection.",
-            "Balanced fertilizer is good for general growth.",
-            "Regular organic compost application improves soil quality.",
-            "Manually check plant growth stage and choose from the above recommendations."
-        ])
+        base_plan = [dict(entry) for entry in fertilizer_plans.get("General", [])]
+        _apply("general")
 
     # Weather forecast adjustments
     day_to_index = {
-        "Monday": 0,
-        "Tuesday": 1,
-        "Wednesday": 2,
-        "Thursday": 3,
-        "Friday": 4,
-        "Saturday": 5
+        "Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
+        "Friday": 4, "Saturday": 5, "Sunday": 6,
     }
 
     for day_plan in base_plan:
         day_weather_factor = weather_factor
-        day_specific_warning = None
 
         if weather_forecast and day_plan["day"] in day_to_index:
             day_index = day_to_index[day_plan["day"]]
@@ -348,37 +276,44 @@ def generate_growth_recommendations(
                 day_condition = forecast_day.get("condition", weather)
                 day_temp = forecast_day.get("temperature")
                 day_humidity = forecast_day.get("humidity")
+                day_fmt = {**fmt, "day": day_plan["day"]}
 
                 if day_condition == "rainy":
                     day_weather_factor = 0.7
-                    day_specific_warning = f"🌧️ {day_plan['day']} - Rainy weather, fertilizer amount reduced"
-                elif day_condition == "sunny" and day_temp and day_temp > 32:
+                    day_warning = _fmt(
+                        (cond_msgs.get("day_rainy", {}).get("warnings", ["{day} - Rainy weather, fertilizer amount reduced"])[0]),
+                        **day_fmt
+                    )
+                    if day_warning not in warnings:
+                        warnings.append(day_warning)
+                elif day_condition == "sunny" and day_temp and day_temp > cond["temp_very_high"]:
                     day_weather_factor = 1.0
-                    day_specific_warning = f"☀️ {day_plan['day']} - Hot weather, apply fertilizer in late afternoon"
+                    day_warning = _fmt(
+                        (cond_msgs.get("day_hot", {}).get("warnings", ["{day} - Hot weather, apply fertilizer in late afternoon"])[0]),
+                        **day_fmt
+                    )
+                    if day_warning not in warnings:
+                        warnings.append(day_warning)
                 else:
                     day_weather_factor = 1.0
 
                 day_plan["forecast"] = {
                     "condition": day_condition,
                     "temperature": round(day_temp, 1) if day_temp else None,
-                    "humidity": round(day_humidity, 1) if day_humidity else None
+                    "humidity": round(day_humidity, 1) if day_humidity else None,
                 }
-
-                if day_specific_warning and day_specific_warning not in warnings:
-                    warnings.append(day_specific_warning)
 
         if "grams" in day_plan["amount"]:
             parts = day_plan["amount"].split()
-            if len(parts) >= 1:
+            if parts:
                 try:
                     amounts = parts[0].split("-")
-                    adjusted_amounts = [str(int(float(a) * day_weather_factor)) for a in amounts]
-
+                    adjusted = [str(int(float(a) * day_weather_factor)) for a in amounts]
                     if day_weather_factor != 1.0:
-                        day_plan["amount_adjusted"] = "-".join(adjusted_amounts) + " grams per plant (weather adjusted)"
+                        day_plan["amount_adjusted"] = "-".join(adjusted) + " grams per plant (weather adjusted)"
                     else:
                         day_plan["amount_adjusted"] = day_plan["amount"]
-                except:
+                except Exception:
                     day_plan["amount_adjusted"] = day_plan["amount"]
             else:
                 day_plan["amount_adjusted"] = day_plan["amount"]
@@ -386,15 +321,16 @@ def generate_growth_recommendations(
             day_plan["amount_adjusted"] = day_plan["amount"]
 
     if weather_forecast:
-        tips.append("📅 Fertilizer amounts have been adjusted for each day based on the weekly weather forecast.")
+        forecast_tip_msgs = cond_msgs.get("forecast_adjusted", {}).get("tips", [])
+        if forecast_tip_msgs:
+            tips.append(forecast_tip_msgs[0])
 
         rainy_days = sum(1 for f in weather_forecast if f.get("condition") == "rainy")
         if rainy_days >= 3:
-            warnings.append(f"⚠️ {rainy_days} rainy days expected this week! Ensure proper drainage.")
-            tips.append("Apply organic mulch during rainy weeks - it reduces soil erosion.")
+            rainy_fmt = {**fmt, "rainy_days": str(rainy_days)}
+            for w in cond_msgs.get("forecast_rainy_week", {}).get("warnings", []):
+                warnings.append(_fmt(w, **rainy_fmt))
+            for t in cond_msgs.get("forecast_rainy_week", {}).get("tips", []):
+                tips.append(_fmt(t, **rainy_fmt))
 
-    return GrowthRecommendation(
-        week_plan=base_plan,
-        warnings=warnings,
-        tips=tips
-    )
+    return GrowthRecommendation(week_plan=base_plan, warnings=warnings, tips=tips)
