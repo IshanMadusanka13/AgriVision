@@ -282,7 +282,7 @@ export default function SoilInputScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
-  areaText: { fontSize: 16, color: "#666", marginBottom: 10 },
+  areaText: { fontSize: 16, color: "#100e0e", marginBottom: 10 },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",

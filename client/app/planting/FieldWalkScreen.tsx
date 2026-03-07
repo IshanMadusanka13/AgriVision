@@ -165,8 +165,10 @@ export default function FieldWalkScreen() {
           <View style={styles.areaBox}>
             <Text>📐 Field Area</Text>
             <Text>{areaResult.sqMeters.toFixed(1)} m²</Text>
+            <Text>{areaResult.perches.toFixed(4)} perches</Text>
             <Text>{areaResult.acres.toFixed(4)} acres</Text>
-            <Text>{areaResult.hectares.toFixed(4)} hectares</Text>
+            
+            
           </View>
         )}
 

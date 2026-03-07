@@ -12,14 +12,7 @@ export default function PlantingLayout() {
         name="FieldWalkScreen"
         options={{ title: "Walk Field" }}
       />
-      <Stack.Screen
-        name="AreaChoiceScreen"
-        options={{ title: "Select Area Input" }}
-      />
-      <Stack.Screen
-        name="ManualAreaScreen"
-        options={{ title: "Manual Area" }}
-      />
+      
       <Stack.Screen
         name="SoilInputScreen"
         options={{ title: "Upload Soil Data" }}
