@@ -121,3 +121,51 @@ async def get_detection(detection_id: str):
             status_code=500,
             detail=f"Error fetching detection: {str(e)}"
         )
+
+
+@router.get("/diseases")
+async def get_all_diseases():
+    try:
+        diseases = disease_service.get_all_diseases()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "total": len(diseases),
+            "diseases": diseases
+        })
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching diseases: {str(e)}"
+        )
+
+
+@router.put("/diseases/{disease_id}")
+async def update_disease(disease_id: str, update_data: dict):
+    try:
+        updated_disease = disease_service.update_disease(disease_id, update_data)
+        
+        if not updated_disease:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Disease not found with ID: {disease_id}"
+            )
+        
+        return JSONResponse(content={
+            "status": "success",
+            "disease": updated_disease
+        })
+    
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=400,
+            detail=str(ve)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating disease: {str(e)}"
+        )
