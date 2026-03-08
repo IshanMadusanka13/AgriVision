@@ -183,6 +183,12 @@ export interface ConditionsConfig {
   temp_low: number;
 }
 
+export interface SmartAdviceSettings {
+  benchmark_top_percentile: number;
+  deviation_threshold: number;
+  history_days: number;
+}
+
 export interface DashboardStats {
   total_users: number;
   total_sessions: number;
@@ -194,7 +200,7 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.12:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://10.36.239.11:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -876,6 +882,28 @@ export const updateConditionMessagesConfig = async (userEmail: string, condition
   }
 };
 
+export const getSmartAdviceSettings = async (userEmail: string): Promise<SmartAdviceSettings> => {
+  try {
+    const response = await api.get<{ settings: SmartAdviceSettings }>(
+      '/api/admin/smart-advice/settings',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.settings;
+  } catch (error) {
+    return handleApiError(error, 'Get Smart Advice Settings');
+  }
+};
+
+export const updateSmartAdviceSettings = async (userEmail: string, settings: SmartAdviceSettings): Promise<void> => {
+  try {
+    await api.put('/api/admin/smart-advice/settings', settings, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Smart Advice Settings');
+  }
+};
+
 //-------------------------------------------------
 //-------------------Growth History----------------
 //-------------------------------------------------
@@ -1053,6 +1081,8 @@ export default {
   updateStageTipsConfig,
   getConditionMessagesConfig,
   updateConditionMessagesConfig,
+  getSmartAdviceSettings,
+  updateSmartAdviceSettings,
   // growth
   getGrowthHistory,
   getSessionDetails,

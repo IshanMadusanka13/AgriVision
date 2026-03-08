@@ -442,3 +442,51 @@ async def get_all_sessions(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Failed to fetch sessions: {str(e)}")
+
+
+# ---- Smart Advice Settings ----
+
+class SmartAdviceSettings(BaseModel):
+    benchmark_top_percentile: float = 25.0
+    deviation_threshold: float = 0.15
+    history_days: int = 7
+
+
+@router.get("/smart-advice/settings")
+async def get_smart_advice_settings(admin_user: dict = Depends(verify_admin)):
+    try:
+        response = supabase_service.client.table("system_settings") \
+            .select("benchmark_top_percentile, deviation_threshold, history_days") \
+            .limit(1).execute()
+        if response.data:
+            return {"success": True, "settings": response.data[0]}
+        # No row found — insert defaults so subsequent saves can update the existing row
+        defaults = SmartAdviceSettings().dict()
+        supabase_service.client.table("system_settings").insert(defaults).execute()
+        return {"success": True, "settings": defaults}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Failed to fetch smart advice settings: {str(e)}")
+
+
+@router.put("/smart-advice/settings")
+async def update_smart_advice_settings(
+    request: SmartAdviceSettings,
+    admin_user: dict = Depends(verify_admin)
+):
+    try:
+        existing = supabase_service.client.table("system_settings") \
+            .select("id").limit(1).execute()
+
+        if existing.data:
+            row_id = existing.data[0]["id"]
+            supabase_service.client.table("system_settings") \
+                .update(request.dict()).eq("id", row_id).execute()
+        else:
+            supabase_service.client.table("system_settings") \
+                .insert(request.dict()).execute()
+
+        return {"success": True, "message": "Smart advice settings updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Failed to update smart advice settings: {str(e)}")

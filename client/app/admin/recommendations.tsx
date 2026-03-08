@@ -19,10 +19,13 @@ import {
   updateStageTipsConfig,
   getConditionMessagesConfig,
   updateConditionMessagesConfig,
+  getSmartAdviceSettings,
+  updateSmartAdviceSettings,
   FertilizerStageConfig,
   FertilizerDayPlan,
   StageTipsConfig,
   ConditionKeyConfig,
+  SmartAdviceSettings,
 } from '../../services/api';
 
 const STAGE_LABELS: { [key: string]: string } = {
@@ -69,6 +72,13 @@ export default function EditRecommendations() {
   const [expandedCondKey, setExpandedCondKey] = useState<string | null>(null);
   const [newCondInputs, setNewCondInputs] = useState<{ [key: string]: { warning: string; tip: string } }>({});
 
+  // Smart Advice Settings
+  const [smartAdvice, setSmartAdvice] = useState<SmartAdviceSettings>({
+    benchmark_top_percentile: 25,
+    deviation_threshold: 0.15,
+    history_days: 7,
+  });
+
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
@@ -77,11 +87,12 @@ export default function EditRecommendations() {
       if (!userDataString) return;
       const userData = JSON.parse(userDataString);
 
-          const [meta, fertilizers, stageT, condMsgs] = await Promise.all([
+          const [meta, fertilizers, stageT, condMsgs, smartSettings] = await Promise.all([
         getRecommendationsMetadata(userData.email),
         getFertilizerConfig(userData.email),
         getStageTipsConfig(userData.email),
         getConditionMessagesConfig(userData.email),
+        getSmartAdviceSettings(userData.email),
       ]);
 
       setWarnings(meta.warnings || []);
@@ -89,6 +100,7 @@ export default function EditRecommendations() {
       setFertilizerStages(fertilizers);
       setStageTips(stageT);
       setConditionMsgs(condMsgs);
+      setSmartAdvice(smartSettings);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
       Alert.alert('Error', 'Failed to load recommendations');
@@ -109,6 +121,7 @@ export default function EditRecommendations() {
         updateFertilizerConfig(userData.email, fertilizerStages),
         updateStageTipsConfig(userData.email, stageTips),
         updateConditionMessagesConfig(userData.email, conditionMsgs),
+        updateSmartAdviceSettings(userData.email, smartAdvice),
       ]);
       Alert.alert('Success', 'All recommendations updated successfully');
     } catch (error) {
@@ -182,35 +195,38 @@ export default function EditRecommendations() {
   };
 
   // Condition messages helpers
+  const condArrayKey = (type: 'warning' | 'tip') => (type === 'warning' ? 'warnings' : 'tips') as 'warnings' | 'tips';
+
   const removeCondMsg = (condKey: string, type: 'warning' | 'tip', idx: number) => {
+    const key = condArrayKey(type);
     setConditionMsgs(prev =>
       prev.map(c =>
         c.condition_key === condKey
-          ? { ...c, [type === 'warning' ? 'warnings' : 'tips']: c[type === 'warning' ? 'warnings' : 'tips'].filter((_, i) => i !== idx) }
+          ? { ...c, [key]: c[key].filter((_, i) => i !== idx) }
           : c
       )
     );
   };
 
   const addCondMsg = (condKey: string, type: 'warning' | 'tip') => {
-    const field = type === 'warning' ? 'warning' : 'tip';
-    const text = (newCondInputs[condKey]?.[field] || '').trim();
+    const text = (newCondInputs[condKey]?.[type] || '').trim();
     if (!text) return;
+    const key = condArrayKey(type);
     setConditionMsgs(prev =>
       prev.map(c =>
         c.condition_key === condKey
-          ? { ...c, [type === 'warning' ? 'warnings' : 'tips']: [...c[type === 'warning' ? 'warnings' : 'tips'], text] }
+          ? { ...c, [key]: [...c[key], text] }
           : c
       )
     );
-    setNewCondInputs(prev => ({ ...prev, [condKey]: { ...prev[condKey], [field]: '' } }));
+    setNewCondInputs(prev => ({ ...prev, [condKey]: { ...prev[condKey], [type]: '' } }));
   };
 
-  const getCondInput = (condKey: string, field: 'warning' | 'tip') =>
-    newCondInputs[condKey]?.[field] || '';
+  const getCondInput = (condKey: string, type: 'warning' | 'tip') =>
+    newCondInputs[condKey]?.[type] || '';
 
-  const setCondInput = (condKey: string, field: 'warning' | 'tip', value: string) =>
-    setNewCondInputs(prev => ({ ...prev, [condKey]: { ...(prev[condKey] || { warning: '', tip: '' }), [field]: value } }));
+  const setCondInput = (condKey: string, type: 'warning' | 'tip', value: string) =>
+    setNewCondInputs(prev => ({ ...prev, [condKey]: { ...(prev[condKey] || { warning: '', tip: '' }), [type]: value } }));
 
   if (loading) {
     return (
@@ -223,6 +239,65 @@ export default function EditRecommendations() {
 
   return (
     <ScrollView style={styles.container}>
+
+      {/* ---- Smart Advice Settings ---- */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Smart Advice Settings</Text>
+        <Text style={styles.sectionDescription}>
+          Configure how the benchmark engine compares plants and triggers personalised tips.
+        </Text>
+
+        <View style={styles.smartCard}>
+          <View style={styles.smartRow}>
+            <View style={styles.smartField}>
+              <Text style={styles.smartLabel}>Top Performer %</Text>
+              <Text style={styles.smartHint}>Top X% of peers used as benchmark</Text>
+              <View style={styles.smartInputRow}>
+                <TextInput
+                  style={styles.smartInput}
+                  keyboardType="numeric"
+                  value={String(smartAdvice.benchmark_top_percentile)}
+                  onChangeText={(v) => setSmartAdvice(prev => ({ ...prev, benchmark_top_percentile: parseFloat(v) || 0 }))}
+                />
+                <Text style={styles.smartUnit}>%</Text>
+              </View>
+            </View>
+
+            <View style={styles.smartField}>
+              <Text style={styles.smartLabel}>History Days</Text>
+              <Text style={styles.smartHint}>Days back for growth rate</Text>
+              <View style={styles.smartInputRow}>
+                <TextInput
+                  style={styles.smartInput}
+                  keyboardType="numeric"
+                  value={String(smartAdvice.history_days)}
+                  onChangeText={(v) => setSmartAdvice(prev => ({ ...prev, history_days: parseInt(v) || 0 }))}
+                />
+                <Text style={styles.smartUnit}>days</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.smartFieldFull}>
+            <Text style={styles.smartLabel}>Deviation Threshold</Text>
+            <Text style={styles.smartHint}>Relative % difference that triggers a tip (e.g. 0.15 = 15%)</Text>
+            <View style={styles.smartInputRow}>
+              <TextInput
+                style={[styles.smartInput, { flex: 1 }]}
+                keyboardType="numeric"
+                value={String(smartAdvice.deviation_threshold)}
+                onChangeText={(v) => setSmartAdvice(prev => ({ ...prev, deviation_threshold: parseFloat(v) || 0 }))}
+              />
+            </View>
+          </View>
+
+          <View style={styles.smartExampleBox}>
+            <Text style={styles.smartExampleText}>
+              Example: Top {smartAdvice.benchmark_top_percentile}% of peers are benchmarked. If a sensor deviates more than {Math.round(smartAdvice.deviation_threshold * 100)}% from the benchmark average, a tip is generated using data from the last {smartAdvice.history_days} days.
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {/* ---- Fertilizer Plans ---- */}
       <View style={styles.section}>
@@ -398,43 +473,32 @@ export default function EditRecommendations() {
 
             {expandedCondKey === cond.condition_key && (
               <View style={styles.stagePlans}>
-                {/* Warnings */}
-                <Text style={styles.condSubLabel}>Warnings</Text>
-                {cond.warnings.map((w, i) => (
-                  <View key={i} style={[styles.itemCard, styles.warningCard]}>
-                    <Text style={styles.itemText}>{w}</Text>
-                    <TouchableOpacity style={styles.removeButton} onPress={() => removeCondMsg(cond.condition_key, 'warning', i)}>
-                      <Text style={styles.removeButtonText}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
+                {(['warning', 'tip'] as const).map((type) => (
+                  <React.Fragment key={type}>
+                    <Text style={[styles.condSubLabel, type === 'tip' && { marginTop: 12 }]}>
+                      {type === 'warning' ? 'Warnings' : 'Tips'}
+                    </Text>
+                    {cond[condArrayKey(type)].map((msg, i) => (
+                      <View key={i} style={[styles.itemCard, type === 'warning' && styles.warningCard]}>
+                        <Text style={styles.itemText}>{msg}</Text>
+                        <TouchableOpacity style={styles.removeButton} onPress={() => removeCondMsg(cond.condition_key, type, i)}>
+                          <Text style={styles.removeButtonText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <View style={styles.inlineAddRow}>
+                      <TextInput style={styles.inlineInput} placeholder={`Add ${type}...`} multiline
+                        value={getCondInput(cond.condition_key, type)}
+                        onChangeText={(v) => setCondInput(cond.condition_key, type, v)} />
+                      <TouchableOpacity
+                        style={[styles.addButton, type === 'warning' && styles.warningAddButton]}
+                        onPress={() => addCondMsg(cond.condition_key, type)}
+                      >
+                        <Text style={styles.addButtonText}>Add</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </React.Fragment>
                 ))}
-                <View style={styles.inlineAddRow}>
-                  <TextInput style={styles.inlineInput} placeholder="Add warning..." multiline
-                    value={getCondInput(cond.condition_key, 'warning')}
-                    onChangeText={(v) => setCondInput(cond.condition_key, 'warning', v)} />
-                  <TouchableOpacity style={[styles.addButton, styles.warningAddButton]} onPress={() => addCondMsg(cond.condition_key, 'warning')}>
-                    <Text style={styles.addButtonText}>Add</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Tips */}
-                <Text style={[styles.condSubLabel, { marginTop: 12 }]}>Tips</Text>
-                {cond.tips.map((t, i) => (
-                  <View key={i} style={styles.itemCard}>
-                    <Text style={styles.itemText}>{t}</Text>
-                    <TouchableOpacity style={styles.removeButton} onPress={() => removeCondMsg(cond.condition_key, 'tip', i)}>
-                      <Text style={styles.removeButtonText}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                <View style={styles.inlineAddRow}>
-                  <TextInput style={styles.inlineInput} placeholder="Add tip..." multiline
-                    value={getCondInput(cond.condition_key, 'tip')}
-                    onChangeText={(v) => setCondInput(cond.condition_key, 'tip', v)} />
-                  <TouchableOpacity style={styles.addButton} onPress={() => addCondMsg(cond.condition_key, 'tip')}>
-                    <Text style={styles.addButtonText}>Add</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             )}
           </View>
@@ -638,4 +702,70 @@ const styles = StyleSheet.create({
   condSubLabel: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6, marginTop: 4 },
   warningCard: { borderLeftWidth: 3, borderLeftColor: '#f59e0b' },
   warningAddButton: { backgroundColor: '#f59e0b' },
+  smartCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  smartRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  smartField: {
+    flex: 1,
+  },
+  smartFieldFull: {
+    marginBottom: 14,
+  },
+  smartLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  smartHint: {
+    fontSize: 11,
+    color: '#9ca3af',
+    marginBottom: 6,
+  },
+  smartInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  smartInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 10,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#10b981',
+    minWidth: 70,
+    textAlign: 'center',
+  },
+  smartUnit: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  smartExampleBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10b981',
+  },
+  smartExampleText: {
+    fontSize: 12,
+    color: '#065f46',
+    lineHeight: 18,
+  },
 });
