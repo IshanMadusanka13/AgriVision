@@ -818,3 +818,18 @@ async def get_session_details(session_id: str):
     except Exception as e:
         print(f"Session details fetch error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch session details: {str(e)}")
+
+
+@router.get("/smart-advice/{plant_id}")
+async def get_smart_advice(plant_id: str, growth_stage: str):
+    """
+    Called by the app after a scan to get peer-benchmarked tips.
+    /api/growth/smart-advice/8?growth_stage=Vegetative%20Stage
+    """
+    try:
+        from services.smart_advice_service import generate_smart_advice
+        result = generate_smart_advice(plant_id, growth_stage)
+        return {"success": True, **result}
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=f"Smart advice error: {str(e)}")

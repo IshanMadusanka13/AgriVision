@@ -189,6 +189,15 @@ export interface SmartAdviceSettings {
   history_days: number;
 }
 
+export interface SmartAdviceResult {
+  status: 'ok' | 'insufficient_data' | 'no_peers' | 'not_configured';
+  tips: string[];
+  benchmark_used: 'peers' | 'optimal_values' | null;
+  user_growth_rate_cm_per_day: number | null;
+  benchmark_growth_rate_cm_per_day: number | null;
+  benchmark_averages: { ph?: number; humidity?: number; temperature?: number };
+}
+
 export interface DashboardStats {
   total_users: number;
   total_sessions: number;
@@ -494,6 +503,21 @@ export const getWeatherForecast = async (
     return response.data.data;
   } catch (error) {
     return handleApiError(error, 'Forecast API');
+  }
+};
+
+export const getSmartAdvice = async (
+  plantId: number,
+  growthStage: string
+): Promise<SmartAdviceResult> => {
+  try {
+    const response = await api.get<{ success: boolean } & SmartAdviceResult>(
+      `/api/growth/smart-advice/${plantId}`,
+      { params: { growth_stage: growthStage } }
+    );
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Smart Advice');
   }
 };
 
@@ -1083,6 +1107,7 @@ export default {
   updateConditionMessagesConfig,
   getSmartAdviceSettings,
   updateSmartAdviceSettings,
+  getSmartAdvice,
   // growth
   getGrowthHistory,
   getSessionDetails,
