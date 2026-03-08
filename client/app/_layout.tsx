@@ -46,6 +46,12 @@ export default function RootLayout() {
             },
           }}
         />
+
+        {/* Planting screens now part of root stack */}
+        <Stack.Screen name="planting" options={{ title: 'Planting Dashboard' }} />
+        <Stack.Screen name="planting/FieldWalkScreen" options={{ title: 'Walk Field' }} />
+        <Stack.Screen name="planting/SoilInputScreen" options={{ title: 'Upload Soil Data' }} />
+        <Stack.Screen name="planting/ResultScreen" options={{ title: 'Results' }} />
       </Stack>
     </ThemeProvider>
   );

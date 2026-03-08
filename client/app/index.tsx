@@ -74,7 +74,7 @@ export default function HomeScreen() {
     {
       title: 'Growth Analysis',
       description: 'Plant growth stage detection',
-      icon: '🌱',
+      icon: '🌿',
       route: '/growth/growth',
       color: '#10b981',
     },
@@ -101,9 +101,9 @@ export default function HomeScreen() {
     },
     {
       title: 'Planting',
-      description: 'Feature in development',
-      icon: '📈',
-      route: '/planting/planting',
+      description: 'Map field and optimize planting zones',
+      icon: '🌱',
+      route: '/planting',
       color: '#6b7280',
     },
     {

@@ -152,7 +152,7 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.114:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.3:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -923,4 +923,19 @@ export default {
   getAvailableMarkerIds,
   getUserMarkers,
   getMarkerPreview,
+};
+
+
+
+//-------Adaptive Layout Generation ------
+export const processField = async (data: any) => {
+  const response = await api.post(`/api/planting/process`, data);
+  return response.data;
+};
+
+
+export const predictyield = async (data: any) => {
+  const payload = data?.features ? data.features : data;
+  const response = await api.post(`/api/planting/predict-yield`, payload);
+  return response.data;
 };
