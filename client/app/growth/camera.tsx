@@ -289,6 +289,20 @@ export default function CameraScreen() {
               </View>
             </View>
 
+            {/* ArUco marker target box */}
+            <View style={styles.markerGuideWrapper}>
+              <View style={styles.markerGuideBox}>
+                {/* Corner accents */}
+                <View style={[styles.mgCorner, styles.mgCornerTL]} />
+                <View style={[styles.mgCorner, styles.mgCornerTR]} />
+                <View style={[styles.mgCorner, styles.mgCornerBL]} />
+                <View style={[styles.mgCorner, styles.mgCornerBR]} />
+                {/* Centre label */}
+                <Text style={styles.markerGuideLabel}>ArUco Marker</Text>
+              </View>
+              <Text style={styles.markerGuideHint}>Place marker here</Text>
+            </View>
+
             {/* Status badge */}
             <View style={[styles.statusBadge, { backgroundColor: angleColor + 'DD' }]}>
               <Text style={styles.statusText}>{angleLabel}</Text>
@@ -781,4 +795,48 @@ const styles = StyleSheet.create({
     borderRadius: 12, backgroundColor: '#10b981', alignItems: 'center',
   },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  // ArUco marker guide box
+  markerGuideWrapper: {
+    position: 'absolute',
+    bottom: 170,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  markerGuideBox: {
+    width: 100,
+    height: 100,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  mgCorner: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderColor: '#10b981',
+    borderWidth: 2.5,
+  },
+  mgCornerTL: { top: -1, left: -1, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
+  mgCornerTR: { top: -1, right: -1, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
+  mgCornerBL: { bottom: -1, left: -1, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
+  mgCornerBR: { bottom: -1, right: -1, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
+  markerGuideLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  markerGuideHint: {
+    marginTop: 5,
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
 });
