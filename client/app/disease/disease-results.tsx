@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  FlatList,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { predict_disease } from "@/services/api";
@@ -18,17 +17,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─────────────────────────────────────────────
-// TYPES — mirrors BE response exactly
-// ─────────────────────────────────────────────
-
 interface Leaf {
   leaf_id: number;
   disease: string;
   confidence: number;
-  severity: string;
+  severity?: string;
   bbox: number[];
-  leaf_image: string; // base64 data:image/png;base64,...
+  leaf_image: string;
 }
 
 interface DiseaseResult {
@@ -40,27 +35,32 @@ interface DiseaseResult {
   recommendations?: Record<string, string[]>;
 }
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
+const SEVERITY_CLASSES = new Set(["bacterial_spot", "cercospora"]);
 
 const SEVERITY_CONFIG: Record<string, { color: string; bg: string; label: string; dot: string }> = {
-  high:     { color: "#dc2626", bg: "#fef2f2", label: "High",     dot: "#dc2626" },
-  moderate: { color: "#d97706", bg: "#fffbeb", label: "Moderate", dot: "#f59e0b" },
   low:      { color: "#059669", bg: "#ecfdf5", label: "Low",      dot: "#10b981" },
-  none:     { color: "#2563eb", bg: "#eff6ff", label: "None",     dot: "#3b82f6" },
+  moderate: { color: "#d97706", bg: "#fffbeb", label: "Moderate", dot: "#f59e0b" },
+  high:     { color: "#dc2626", bg: "#fef2f2", label: "High",     dot: "#dc2626" },
+  severe:   { color: "#7f1d1d", bg: "#fff1f2", label: "Severe",   dot: "#b91c1c" },
 };
 
 const DISEASE_COLORS: Record<string, string> = {
-  bacterial_spot:  "#ef4444",
-  cercospora:      "#8b5cf6",
-  healthy:         "#10b981",
-  leaf_curl:       "#f59e0b",
-  powdery_mildew:  "#6366f1",
+  bacterial_spot: "#ef4444",
+  cercospora:     "#8b5cf6",
+  healthy:        "#10b981",
+  leaf_curl:      "#f59e0b",
+  powdery_mildew: "#6366f1",
 };
 
 function getSeverityConfig(sev: string) {
-  return SEVERITY_CONFIG[sev?.toLowerCase()] ?? { color: "#6b7280", bg: "#f9fafb", label: sev ?? "—", dot: "#9ca3af" };
+  return (
+    SEVERITY_CONFIG[sev?.toLowerCase()] ?? {
+      color: "#6b7280",
+      bg: "#f9fafb",
+      label: sev ?? "—",
+      dot: "#9ca3af",
+    }
+  );
 }
 
 function getDiseaseColor(disease: string) {
@@ -72,17 +72,22 @@ function formatDiseaseName(name: string) {
   return name?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "—";
 }
 
-// ─────────────────────────────────────────────
-// SUB-COMPONENTS
-// ─────────────────────────────────────────────
+function hasSeverity(leaf: Leaf): boolean {
+  return (
+    SEVERITY_CLASSES.has(leaf.disease?.toLowerCase()) &&
+    typeof leaf.severity === "string" &&
+    leaf.severity.trim().length > 0
+  );
+}
 
-function LeafCard({ leaf, index }: { leaf: Leaf; index: number }) {
-  const sev = getSeverityConfig(leaf.severity);
+function LeafCard({ leaf }: { leaf: Leaf }) {
   const diseaseColor = getDiseaseColor(leaf.disease);
+  const showSeverity = hasSeverity(leaf);
+  const sev = showSeverity ? getSeverityConfig(leaf.severity!) : null;
 
   return (
     <View style={leafCardStyles.card}>
-      {/* Leaf thumbnail */}
+      {/* Thumbnail */}
       <Image
         source={{ uri: leaf.leaf_image }}
         style={leafCardStyles.thumbnail}
@@ -96,31 +101,29 @@ function LeafCard({ leaf, index }: { leaf: Leaf; index: number }) {
 
       {/* Info */}
       <View style={leafCardStyles.info}>
-        <Text style={[leafCardStyles.diseaseName, { color: diseaseColor }]} numberOfLines={1}>
+        {/* Disease name */}
+        <Text
+          style={[leafCardStyles.diseaseName, { color: diseaseColor }]}
+          numberOfLines={1}
+        >
           {formatDiseaseName(leaf.disease)}
         </Text>
 
-        {/* Confidence bar */}
-        <View style={leafCardStyles.confRow}>
-          <Text style={leafCardStyles.confLabel}>Confidence</Text>
-          <Text style={[leafCardStyles.confValue, { color: diseaseColor }]}>
-            {leaf.confidence}%
-          </Text>
-        </View>
-        <View style={leafCardStyles.confBarBg}>
-          <View
-            style={[
-              leafCardStyles.confBarFill,
-              { width: `${leaf.confidence}%` as any, backgroundColor: diseaseColor },
-            ]}
-          />
-        </View>
-
-        {/* Severity pill */}
-        <View style={[leafCardStyles.sevPill, { backgroundColor: sev.bg }]}>
-          <View style={[leafCardStyles.sevDot, { backgroundColor: sev.dot }]} />
-          <Text style={[leafCardStyles.sevText, { color: sev.color }]}>{sev.label}</Text>
-        </View>
+        {/* Severity pill — only for bacterial_spot & cercospora */}
+        {showSeverity && sev ? (
+          <View style={leafCardStyles.sevRow}>
+            <Text style={leafCardStyles.sevLabel}>Severity</Text>
+            <View style={[leafCardStyles.sevPill, { backgroundColor: sev.bg }]}>
+              <View style={[leafCardStyles.sevDot, { backgroundColor: sev.dot }]} />
+              <Text style={[leafCardStyles.sevText, { color: sev.color }]}>
+                {sev.label}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          /* Spacer so all cards have uniform height */
+          <View style={leafCardStyles.noSeveritySpacer} />
+        )}
       </View>
     </View>
   );
@@ -164,38 +167,22 @@ const leafCardStyles = StyleSheet.create({
   diseaseName: {
     fontSize: 13,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: 10,
     letterSpacing: 0.2,
   },
-  confRow: {
+  sevRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
   },
-  confLabel: {
+  sevLabel: {
     fontSize: 11,
     color: "#9ca3af",
     fontWeight: "500",
   },
-  confValue: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  confBarBg: {
-    height: 5,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 3,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  confBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
   sevPill: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 20,
@@ -210,11 +197,10 @@ const leafCardStyles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
+  noSeveritySpacer: {
+    height: 24, 
+  },
 });
-
-// ─────────────────────────────────────────────
-// MAIN SCREEN
-// ─────────────────────────────────────────────
 
 export default function DiseaseResultsScreen() {
   const router = useRouter();
@@ -254,7 +240,9 @@ export default function DiseaseResultsScreen() {
         );
 
         if (analysisResult.status === "no_leaf_detected") {
-          setError("No plant leaf detected. Please try again with a clearer image of the affected area.");
+          setError(
+            "No plant leaf detected. Please try again with a clearer image of the affected area."
+          );
           setLoading(false);
           return;
         }
@@ -270,7 +258,6 @@ export default function DiseaseResultsScreen() {
     analyzeImage();
   }, [imageUri, saveToDb]);
 
-  // ── Loading ──────────────────────────────────
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -281,19 +268,20 @@ export default function DiseaseResultsScreen() {
             Running YOLO detection + EfficientNet classification…
           </Text>
           <View style={styles.loadingSteps}>
-            {["Detecting leaves", "Classifying diseases", "Fetching treatments"].map((step, i) => (
-              <View key={i} style={styles.loadingStep}>
-                <View style={[styles.stepDot, { backgroundColor: "#10b981" }]} />
-                <Text style={styles.stepText}>{step}</Text>
-              </View>
-            ))}
+            {["Detecting leaves", "Classifying diseases", "Fetching treatments"].map(
+              (step, i) => (
+                <View key={i} style={styles.loadingStep}>
+                  <View style={[styles.stepDot, { backgroundColor: "#10b981" }]} />
+                  <Text style={styles.stepText}>{step}</Text>
+                </View>
+              )
+            )}
           </View>
         </View>
       </View>
     );
   }
 
-  // ── Error ────────────────────────────────────
   if (error) {
     return (
       <View style={styles.centerContainer}>
@@ -319,17 +307,22 @@ export default function DiseaseResultsScreen() {
   const recommendations = result.recommendations ?? {};
   const hasRecommendations = Object.keys(recommendations).length > 0;
 
-  // Dominant disease (highest count)
-  const dominantDisease = Object.entries(diseaseSummary).sort((a, b) => b[1] - a[1])[0]?.[0];
-  const isAllHealthy = dominantDisease === "healthy" || (Object.keys(diseaseSummary).length === 1 && diseaseSummary["healthy"]);
+  const dominantDisease = Object.entries(diseaseSummary).sort(
+    (a, b) => b[1] - a[1]
+  )[0]?.[0];
+  const isAllHealthy =
+    dominantDisease === "healthy" ||
+    (Object.keys(diseaseSummary).length === 1 && diseaseSummary["healthy"]);
 
-  // Share handler
   const handleShare = async () => {
     const summaryLines = Object.entries(diseaseSummary)
       .map(([d, c]) => `  • ${formatDiseaseName(d)}: ${c} leaf${c > 1 ? "s" : ""}`)
       .join("\n");
     const recLines = Object.entries(recommendations)
-      .map(([d, recs]) => `${formatDiseaseName(d)}:\n${recs.map((r) => `  • ${r}`).join("\n")}`)
+      .map(
+        ([d, recs]) =>
+          `${formatDiseaseName(d)}:\n${recs.map((r) => `  • ${r}`).join("\n")}`
+      )
       .join("\n\n");
 
     await Share.share({
@@ -343,11 +336,14 @@ export default function DiseaseResultsScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+
       {/* ── HEADER ── */}
       <View style={[styles.header, { backgroundColor: isAllHealthy ? "#064e3b" : "#1c1917" }]}>
         <Text style={styles.headerEyebrow}>SCAN COMPLETE</Text>
         <Text style={styles.headerTitle}>
-          {isAllHealthy ? "Plant is Healthy ✓" : `${formatDiseaseName(dominantDisease ?? "")} Detected`}
+          {isAllHealthy
+            ? "Plant is Healthy ✓"
+            : `${formatDiseaseName(dominantDisease ?? "")} Detected`}
         </Text>
         <Text style={styles.headerSubtitle}>
           {result.total_leaves} leaf{(result.total_leaves ?? 0) > 1 ? "s" : ""} analysed
@@ -399,12 +395,10 @@ export default function DiseaseResultsScreen() {
       {/* ── INDIVIDUAL LEAF CARDS ── */}
       {leaves.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Leaf-by-Leaf Results
-          </Text>
+          <Text style={styles.sectionTitle}>Leaf-by-Leaf Results</Text>
           <View style={styles.leafGrid}>
-            {leaves.map((leaf, i) => (
-              <LeafCard key={leaf.leaf_id} leaf={leaf} index={i} />
+            {leaves.map((leaf) => (
+              <LeafCard key={leaf.leaf_id} leaf={leaf} />
             ))}
           </View>
         </View>
@@ -441,7 +435,6 @@ export default function DiseaseResultsScreen() {
         <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
           <Text style={styles.shareBtnText}>Share Results</Text>
         </TouchableOpacity>
-
         <View style={styles.secondaryActions}>
           <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.back()}>
             <Text style={styles.secondaryBtnText}>Scan Again</Text>
@@ -749,7 +742,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
 
-  // ── Action buttons ───────────────────────────
+  // ── Actions ──────────────────────────────────
   actionSection: {
     padding: 16,
     paddingBottom: 40,

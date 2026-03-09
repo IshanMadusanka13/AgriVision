@@ -81,53 +81,6 @@ export default function DiseaseScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Features Grid */}
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>What We Detect</Text>
-        
-        <View style={styles.featuresGrid}>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconCircle, { backgroundColor: "#fef3c7" }]}>
-              <Text style={styles.featureItemIcon}>🔬</Text>
-            </View>
-            <Text style={styles.featureItemTitle}>Bacterial Spot</Text>
-            <Text style={styles.featureItemDescription}>
-              Dark lesions on leaves and fruits
-            </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconCircle, { backgroundColor: "#dbeafe" }]}>
-              <Text style={styles.featureItemIcon}>🍃</Text>
-            </View>
-            <Text style={styles.featureItemTitle}>Leaf Curl</Text>
-            <Text style={styles.featureItemDescription}>
-              Distorted and curled foliage
-            </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconCircle, { backgroundColor: "#fce7f3" }]}>
-              <Text style={styles.featureItemIcon}>☁️</Text>
-            </View>
-            <Text style={styles.featureItemTitle}>Powdery Mildew</Text>
-            <Text style={styles.featureItemDescription}>
-              White powdery coating
-            </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconCircle, { backgroundColor: "#dcfce7" }]}>
-              <Text style={styles.featureItemIcon}>⭕</Text>
-            </View>
-            <Text style={styles.featureItemTitle}>Cercospora</Text>
-            <Text style={styles.featureItemDescription}>
-              Circular leaf spots
-            </Text>
-          </View>
-        </View>
-      </View>
-
       {/* How It Works */}
       <View style={styles.howItWorksSection}>
         <Text style={styles.sectionTitle}>How It Works</Text>
@@ -166,71 +119,6 @@ export default function DiseaseScreen() {
               Receive detailed diagnosis with severity level and treatment recommendations
             </Text>
           </View>
-        </View>
-      </View>
-
-      {/* Benefits */}
-      <View style={styles.benefitsSection}>
-        <Text style={styles.sectionTitle}>Why Use Our Scanner?</Text>
-        
-        <View style={styles.benefitItem}>
-          <Text style={styles.benefitIcon}>⚡</Text>
-          <View style={styles.benefitContent}>
-            <Text style={styles.benefitTitle}>Instant Results</Text>
-            <Text style={styles.benefitDescription}>
-              Get diagnosis in seconds, not days
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.benefitItem}>
-          <Text style={styles.benefitIcon}>🎯</Text>
-          <View style={styles.benefitContent}>
-            <Text style={styles.benefitTitle}>High Accuracy</Text>
-            <Text style={styles.benefitDescription}>
-              Trained on thousands of Scotch Bonnet images
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.benefitItem}>
-          <Text style={styles.benefitIcon}>💊</Text>
-          <View style={styles.benefitContent}>
-            <Text style={styles.benefitTitle}>Treatment Plans</Text>
-            <Text style={styles.benefitDescription}>
-              Receive actionable treatment recommendations
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.benefitItem}>
-          <Text style={styles.benefitIcon}>📊</Text>
-          <View style={styles.benefitContent}>
-            <Text style={styles.benefitTitle}>Track Progress</Text>
-            <Text style={styles.benefitDescription}>
-              Save and compare scans over time
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* CTA Section */}
-      <View style={styles.ctaSection}>
-        <View style={styles.ctaCard}>
-          <Text style={styles.ctaEmoji}>🌱</Text>
-          <Text style={styles.ctaTitle}>Keep Your Peppers Healthy</Text>
-          <Text style={styles.ctaDescription}>
-            Early detection is key to preventing disease spread and maintaining a healthy crop
-          </Text>
-          
-          <TouchableOpacity
-            style={styles.ctaButton}
-            onPress={handleStartAnalysis}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.ctaButtonText}>Start Your First Scan</Text>
-            <Text style={styles.ctaButtonIcon}>→</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
