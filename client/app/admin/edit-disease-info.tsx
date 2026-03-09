@@ -14,46 +14,130 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { getAllDiseases, updateDisease } from "../../services/api";
 
+// =============================================================
+// TYPES
+// =============================================================
+
 interface Disease {
   id: string;
   disease_name: string;
   description: string;
-  severity_level: "High" | "Moderate" | "Low" | "None";
-  symptoms: string;
-  treatment: string;
-  treatments?: string[];
-  prevention: string;
+  severity_level: "High" | "Moderate" | "Low" | "None" | "Severe";
+  severity_max_score: number | null;
+  treatments: string[];
   updated_at?: string;
 }
 
-const SEVERITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  High: { bg: "#fef2f2", text: "#dc2626", border: "#fecaca" },
-  Moderate: { bg: "#fffbeb", text: "#d97706", border: "#fde68a" },
-  Low: { bg: "#f0fdf4", text: "#16a34a", border: "#bbf7d0" },
-  None: { bg: "#f9fafb", text: "#6b7280", border: "#e5e7eb" },
+interface DiseaseGroup {
+  disease_name: string;
+  rows: Disease[];
+}
+
+type EditFormType = {
+  description: string;
+  severity_max_score: string; // string for TextInput, parsed on save
+  treatments: string[];
 };
 
-const SEVERITY_OPTIONS = ["High", "Moderate", "Low", "None"];
+// =============================================================
+// CONSTANTS
+// =============================================================
 
-type EditFormType = Omit<Partial<Disease>, "treatments"> & {
-  treatments?: string[];
+const SEVERITY_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  Severe:   { bg: "#fff1f2", text: "#b91c1c", border: "#fecdd3", dot: "#e11d48" },
+  High:     { bg: "#fef2f2", text: "#dc2626", border: "#fecaca", dot: "#ef4444" },
+  Moderate: { bg: "#fffbeb", text: "#d97706", border: "#fde68a", dot: "#f59e0b" },
+  Low:      { bg: "#f0fdf4", text: "#16a34a", border: "#bbf7d0", dot: "#22c55e" },
+  None:     { bg: "#f9fafb", text: "#6b7280", border: "#e5e7eb", dot: "#9ca3af" },
 };
+
+// Ordered for display within a group
+const SEVERITY_ORDER = ["Low", "Moderate", "High", "Severe", "None"];
+
+// =============================================================
+// HELPERS
+// =============================================================
+
+function groupDiseases(diseases: Disease[]): DiseaseGroup[] {
+  const map = new Map<string, Disease[]>();
+  for (const d of diseases) {
+    if (!map.has(d.disease_name)) map.set(d.disease_name, []);
+    map.get(d.disease_name)!.push(d);
+  }
+  return Array.from(map.entries()).map(([disease_name, rows]) => ({
+    disease_name,
+    rows: rows.sort(
+      (a, b) =>
+        SEVERITY_ORDER.indexOf(a.severity_level) -
+        SEVERITY_ORDER.indexOf(b.severity_level)
+    ),
+  }));
+}
+
+function formatDiseaseName(name: string) {
+  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// =============================================================
+// SUB-COMPONENTS
+// =============================================================
+
+function SeverityBadge({ level }: { level: string }) {
+  const c = SEVERITY_COLORS[level] ?? SEVERITY_COLORS.None;
+  return (
+    <View style={[badge.wrap, { backgroundColor: c.bg, borderColor: c.border }]}>
+      <View style={[badge.dot, { backgroundColor: c.dot }]} />
+      <Text style={[badge.text, { color: c.text }]}>{level}</Text>
+    </View>
+  );
+}
+
+const badge = StyleSheet.create({
+  wrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 5,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  text: { fontSize: 12, fontWeight: "700" },
+});
+
+// =============================================================
+// MAIN SCREEN
+// =============================================================
 
 export default function EditDiseaseInfo() {
-  const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [groups, setGroups] = useState<DiseaseGroup[]>([]);
+  const [allDiseases, setAllDiseases] = useState<Disease[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState<EditFormType>({});
+  const [editForm, setEditForm] = useState<EditFormType>({
+    description: "",
+    severity_max_score: "",
+    treatments: [],
+  });
   const [newTreatment, setNewTreatment] = useState("");
   const newTreatmentRef = useRef<TextInput>(null);
+
+  // ── Data fetching ────────────────────────────────────────────
 
   const fetchDiseases = async () => {
     try {
       const data = await getAllDiseases();
-      setDiseases(data.diseases);
+      const diseases: Disease[] = data.diseases.map((d: any) => ({
+        ...d,
+        severity_max_score: d.severity_max_score ?? null,
+        treatments: d.treatments ?? [],
+      }));
+      setAllDiseases(diseases);
+      setGroups(groupDiseases(diseases));
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to fetch diseases.");
     } finally {
@@ -62,61 +146,92 @@ export default function EditDiseaseInfo() {
     }
   };
 
-  useEffect(() => {
-    fetchDiseases();
-  }, []);
+  useEffect(() => { fetchDiseases(); }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchDiseases();
-  };
+  const onRefresh = () => { setRefreshing(true); fetchDiseases(); };
+
+  // ── Edit modal ───────────────────────────────────────────────
 
   const openEdit = (disease: Disease) => {
     setSelectedDisease(disease);
     setEditForm({
-      description: disease.description,
-      severity_level: disease.severity_level,
-      symptoms: disease.symptoms,
-      prevention: disease.prevention,
+      description: disease.description ?? "",
+      severity_max_score:
+        disease.severity_max_score != null
+          ? String(disease.severity_max_score)
+          : "",
       treatments: disease.treatments ? [...disease.treatments] : [],
     });
     setNewTreatment("");
     setEditModalVisible(true);
   };
 
-  // Treatment list helpers
+  // ── Treatment helpers ────────────────────────────────────────
+
   const addTreatment = () => {
     const trimmed = newTreatment.trim();
     if (!trimmed) return;
-    setEditForm((f) => ({ ...f, treatments: [...(f.treatments ?? []), trimmed] }));
+    setEditForm((f) => ({ ...f, treatments: [...f.treatments, trimmed] }));
     setNewTreatment("");
     newTreatmentRef.current?.focus();
   };
 
-  const removeTreatment = (index: number) => {
+  const removeTreatment = (index: number) =>
     setEditForm((f) => ({
       ...f,
-      treatments: (f.treatments ?? []).filter((_, i) => i !== index),
+      treatments: f.treatments.filter((_, i) => i !== index),
     }));
-  };
 
-  const editTreatment = (index: number, value: string) => {
+  const editTreatment = (index: number, value: string) =>
     setEditForm((f) => {
-      const updated = [...(f.treatments ?? [])];
+      const updated = [...f.treatments];
       updated[index] = value;
       return { ...f, treatments: updated };
     });
-  };
+
+  // ── Save ─────────────────────────────────────────────────────
 
   const handleSave = async () => {
     if (!selectedDisease) return;
+
+    // Validate severity_max_score
+    const scoreRaw = editForm.severity_max_score.trim();
+    let severity_max_score: number | null = null;
+    if (scoreRaw !== "") {
+      const parsed = parseFloat(scoreRaw);
+      if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+        Alert.alert("Invalid Score", "Severity max score must be a number between 0 and 100.");
+        return;
+      }
+      severity_max_score = parsed;
+    }
+
     setSaving(true);
     try {
-      const payload: any = { ...editForm };
+      const payload = {
+        description: editForm.description,
+        treatments: editForm.treatments,
+        severity_max_score,
+      };
+
       const data = await updateDisease(selectedDisease.id, payload);
+
       if (data.status === "success") {
-        setDiseases((prev) =>
-          prev.map((d) => (d.id === selectedDisease.id ? data.disease : d))
+        const updated: Disease = {
+          ...selectedDisease,
+          ...data.disease,
+          severity_max_score: severity_max_score,
+          treatments: editForm.treatments,
+        };
+
+        // Update flat list and re-group
+        setAllDiseases((prev) =>
+          prev.map((d) => (d.id === updated.id ? updated : d))
+        );
+        setGroups((prev) =>
+          groupDiseases(
+            allDiseases.map((d) => (d.id === updated.id ? updated : d))
+          )
         );
         setEditModalVisible(false);
       } else {
@@ -129,14 +244,7 @@ export default function EditDiseaseInfo() {
     }
   };
 
-  const SeverityBadge = ({ level }: { level: string }) => {
-    const colors = SEVERITY_COLORS[level] || SEVERITY_COLORS.None;
-    return (
-      <View style={[styles.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-        <Text style={[styles.badgeText, { color: colors.text }]}>{level}</Text>
-      </View>
-    );
-  };
+  // ── Loading state ────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -147,8 +255,11 @@ export default function EditDiseaseInfo() {
     );
   }
 
+  // ── Render ───────────────────────────────────────────────────
+
   return (
     <View style={styles.container}>
+
       {/* Header */}
       <LinearGradient
         colors={["#dc2626", "#ef4444", "#f87171"]}
@@ -157,62 +268,116 @@ export default function EditDiseaseInfo() {
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Disease Management</Text>
-        <Text style={styles.headerSubtitle}>{diseases.length} diseases in database</Text>
+        <Text style={styles.headerSubtitle}>
+          {groups.length} disease{groups.length !== 1 ? "s" : ""} ·{" "}
+          {allDiseases.length} total rows
+        </Text>
       </LinearGradient>
 
-      {/* Disease List */}
+      {/* Disease Groups */}
       <ScrollView
         style={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ef4444" />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#ef4444"
+          />
         }
       >
-        {diseases.map((disease) => (
-          <View key={disease.id} style={styles.diseaseCard}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.diseaseName}>{disease.disease_name}</Text>
-              <SeverityBadge level={disease.severity_level} />
-            </View>
+        {groups.map((group) => (
+          <View key={group.disease_name} style={styles.groupCard}>
 
-            {disease.description ? (
-              <Text style={styles.diseaseDescription} numberOfLines={2}>
-                {disease.description}
+            {/* Group header */}
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupName}>
+                {formatDiseaseName(group.disease_name)}
               </Text>
-            ) : null}
-
-            <View style={styles.cardMeta}>
-              {disease.updated_at ? (
-                <Text style={styles.metaText}>
-                  Updated: {new Date(disease.updated_at).toLocaleDateString()}
+              <View style={styles.groupRowCount}>
+                <Text style={styles.groupRowCountText}>
+                  {group.rows.length} {group.rows.length === 1 ? "tier" : "tiers"}
                 </Text>
-              ) : (
-                <View />
-              )}
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => openEdit(disease)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
+              </View>
             </View>
+
+            {/* Severity rows */}
+            {group.rows.map((row, idx) => {
+              const c = SEVERITY_COLORS[row.severity_level] ?? SEVERITY_COLORS.None;
+              const isLast = idx === group.rows.length - 1;
+              return (
+                <View
+                  key={row.id}
+                  style={[
+                    styles.severityRow,
+                    !isLast && styles.severityRowBorder,
+                  ]}
+                >
+                  {/* Left: badge + score */}
+                  <View style={styles.severityRowLeft}>
+                    <SeverityBadge level={row.severity_level} />
+                    {row.severity_max_score != null && (
+                      <Text style={styles.maxScore}>
+                        ≤ {row.severity_max_score}%
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Right: treatment count + edit */}
+                  <View style={styles.severityRowRight}>
+                    <Text style={styles.treatmentCount}>
+                      {row.treatments?.length ?? 0} treatments
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.editButton,
+                        { backgroundColor: c.bg, borderColor: c.border },
+                      ]}
+                      onPress={() => openEdit(row)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.editButtonText, { color: c.text }]}>
+                        Edit
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         ))}
+
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Edit Modal */}
-      <Modal visible={editModalVisible} animationType="slide" presentationStyle="pageSheet">
+      {/* ── Edit Modal ─────────────────────────────────────── */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
         <View style={styles.modalContainer}>
+
           {/* Modal Header */}
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.cancelBtn}>
+            <TouchableOpacity
+              onPress={() => setEditModalVisible(false)}
+              style={styles.cancelBtn}
+            >
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle} numberOfLines={1}>
-              {selectedDisease?.disease_name}
-            </Text>
+
+            <View style={styles.modalTitleBlock}>
+              <Text style={styles.modalTitle} numberOfLines={1}>
+                {selectedDisease
+                  ? formatDiseaseName(selectedDisease.disease_name)
+                  : ""}
+              </Text>
+              {selectedDisease && (
+                <SeverityBadge level={selectedDisease.severity_level} />
+              )}
+            </View>
+
             <TouchableOpacity
               onPress={handleSave}
               style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -231,41 +396,31 @@ export default function EditDiseaseInfo() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Severity Selector */}
+            {/* Read-only identity info */}
+            <View style={styles.identityBanner}>
+              <Text style={styles.identityLabel}>SEVERITY TIER</Text>
+              <Text style={styles.identityNote}>
+                Severity level is fixed for this row. To change thresholds,
+                edit the max score below.
+              </Text>
+            </View>
+
+            {/* Severity Max Score */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Severity Level</Text>
-              <View style={styles.severityRow}>
-                {SEVERITY_OPTIONS.map((level) => {
-                  const colors = SEVERITY_COLORS[level];
-                  const isSelected = editForm.severity_level === level;
-                  return (
-                    <TouchableOpacity
-                      key={level}
-                      style={[
-                        styles.severityOption,
-                        { borderColor: colors.border },
-                        isSelected && { backgroundColor: colors.bg, borderColor: colors.text },
-                      ]}
-                      onPress={() =>
-                        setEditForm((f) => ({
-                          ...f,
-                          severity_level: level as Disease["severity_level"],
-                        }))
-                      }
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.severityOptionText,
-                          { color: isSelected ? colors.text : "#6b7280" },
-                        ]}
-                      >
-                        {level}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <Text style={styles.fieldLabel}>
+                Severity Max Score{" "}
+                <Text style={styles.fieldHint}>(0 – 100, % of leaf affected)</Text>
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                value={editForm.severity_max_score}
+                onChangeText={(t) =>
+                  setEditForm((f) => ({ ...f, severity_max_score: t }))
+                }
+                keyboardType="decimal-pad"
+                placeholder="e.g. 25"
+                placeholderTextColor="#9ca3af"
+              />
             </View>
 
             {/* Description */}
@@ -273,8 +428,10 @@ export default function EditDiseaseInfo() {
               <Text style={styles.fieldLabel}>Description</Text>
               <TextInput
                 style={[styles.textInput, styles.textArea]}
-                value={editForm.description || ""}
-                onChangeText={(text) => setEditForm((f) => ({ ...f, description: text }))}
+                value={editForm.description}
+                onChangeText={(text) =>
+                  setEditForm((f) => ({ ...f, description: text }))
+                }
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -283,17 +440,16 @@ export default function EditDiseaseInfo() {
               />
             </View>
 
-            {/* Treatments — dynamic list */}
+            {/* Treatments */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>
                 Treatments{" "}
                 <Text style={styles.fieldCount}>
-                  ({editForm.treatments?.length ?? 0})
+                  ({editForm.treatments.length})
                 </Text>
               </Text>
 
-              {/* Existing treatment items */}
-              {(editForm.treatments ?? []).map((item, index) => (
+              {editForm.treatments.map((item, index) => (
                 <View key={index} style={styles.treatmentRow}>
                   <View style={styles.treatmentIndex}>
                     <Text style={styles.treatmentIndexText}>{index + 1}</Text>
@@ -317,7 +473,7 @@ export default function EditDiseaseInfo() {
                 </View>
               ))}
 
-              {/* Add new treatment row */}
+              {/* Add new treatment */}
               <View style={styles.addTreatmentRow}>
                 <TextInput
                   ref={newTreatmentRef}
@@ -331,7 +487,10 @@ export default function EditDiseaseInfo() {
                   blurOnSubmit={false}
                 />
                 <TouchableOpacity
-                  style={[styles.addBtn, !newTreatment.trim() && styles.addBtnDisabled]}
+                  style={[
+                    styles.addBtn,
+                    !newTreatment.trim() && styles.addBtnDisabled,
+                  ]}
                   onPress={addTreatment}
                   disabled={!newTreatment.trim()}
                   activeOpacity={0.8}
@@ -349,6 +508,10 @@ export default function EditDiseaseInfo() {
   );
 }
 
+// =============================================================
+// STYLES
+// =============================================================
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f9fafb" },
   loadingContainer: {
@@ -359,53 +522,92 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9fafb",
   },
   loadingText: { fontSize: 15, color: "#6b7280" },
+
+  // Header
   header: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 24 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff", marginBottom: 4 },
   headerSubtitle: { fontSize: 15, color: "#fecaca" },
+
   listContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  diseaseCard: {
+
+  // Group card
+  groupCard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 12,
+    borderRadius: 18,
+    marginBottom: 14,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 3,
   },
-  cardTitleRow: {
+  groupHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
-    marginBottom: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+    backgroundColor: "#fafafa",
   },
-  diseaseName: { fontSize: 17, fontWeight: "700", color: "#1f2937", flex: 1 },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
-  badgeText: { fontSize: 12, fontWeight: "700" },
-  diseaseDescription: {
-    fontSize: 14,
-    color: "#6b7280",
-    lineHeight: 20,
-    marginBottom: 12,
+  groupName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: -0.3,
   },
-  cardMeta: {
+  groupRowCount: {
+    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  groupRowCountText: { fontSize: 12, fontWeight: "600", color: "#6b7280" },
+
+  // Severity row inside group
+  severityRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
   },
-  metaText: { fontSize: 12, color: "#9ca3af" },
+  severityRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  severityRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  maxScore: {
+    fontSize: 13,
+    color: "#9ca3af",
+    fontWeight: "500",
+  },
+  severityRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  treatmentCount: {
+    fontSize: 12,
+    color: "#9ca3af",
+    fontWeight: "500",
+  },
   editButton: {
-    backgroundColor: "#fef2f2",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 8,
+    borderWidth: 1,
   },
-  editButtonText: { fontSize: 14, fontWeight: "600", color: "#ef4444" },
+  editButtonText: { fontSize: 13, fontWeight: "700" },
+
+  bottomPadding: { height: 40 },
+
   // Modal
   modalContainer: { flex: 1, backgroundColor: "#f9fafb" },
   modalHeader: {
@@ -419,13 +621,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1f2937",
+  modalTitleBlock: {
     flex: 1,
-    textAlign: "center",
+    alignItems: "center",
+    gap: 6,
     marginHorizontal: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1f2937",
+    textAlign: "center",
   },
   cancelBtn: { paddingVertical: 6, paddingHorizontal: 4, minWidth: 60 },
   cancelBtnText: { fontSize: 16, color: "#6b7280" },
@@ -439,7 +645,31 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+
   modalContent: { flex: 1, padding: 20 },
+
+  // Identity banner
+  identityBanner: {
+    backgroundColor: "#fffbeb",
+    borderWidth: 1,
+    borderColor: "#fde68a",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+  },
+  identityLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#d97706",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  identityNote: {
+    fontSize: 13,
+    color: "#92400e",
+    lineHeight: 19,
+  },
+
   fieldGroup: { marginBottom: 24 },
   fieldLabel: {
     fontSize: 13,
@@ -450,6 +680,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   fieldCount: { fontWeight: "400", color: "#9ca3af", textTransform: "none" },
+  fieldHint: {
+    fontWeight: "400",
+    color: "#9ca3af",
+    textTransform: "none",
+    letterSpacing: 0,
+  },
   textInput: {
     backgroundColor: "#fff",
     borderWidth: 1,
@@ -461,6 +697,7 @@ const styles = StyleSheet.create({
     color: "#1f2937",
   },
   textArea: { minHeight: 100, paddingTop: 12 },
+
   // Treatment list
   treatmentRow: {
     flexDirection: "row",
@@ -500,7 +737,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f3f4f6",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 0,
     flexShrink: 0,
   },
   removeBtnText: { fontSize: 11, color: "#6b7280", fontWeight: "700" },
@@ -530,16 +766,4 @@ const styles = StyleSheet.create({
   },
   addBtnDisabled: { backgroundColor: "#fca5a5" },
   addBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
-  severityRow: { flexDirection: "row", gap: 8 },
-  severityOption: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "#e5e7eb",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  severityOptionText: { fontSize: 13, fontWeight: "600" },
-  bottomPadding: { height: 40 },
 });
