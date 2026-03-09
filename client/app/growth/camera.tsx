@@ -19,7 +19,7 @@ import { getPlant, savePlant } from '@/utils/plantRegistry';
 
 // Tolerances (accelerometer units ≈ 0.15 → ~8.6°)
 const TILT_X_TOLERANCE = 0.15;  // left-right roll
-const TILT_Z_TOLERANCE = 0.20;  // forward-backward lean
+const TILT_Z_TOLERANCE = 0.40;  // forward-backward lean
 const UPRIGHT_MIN      = 0.75;  // |y| > this → phone held upright (not flat)
 
 
@@ -94,7 +94,7 @@ export default function CameraScreen() {
   const capturePhoto = async () => {
     if (!cameraRef.current || !isAngleOk) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, skipProcessing: false });
       if (photo) {
         setSelectedImage(photo.uri);
         setDetectionResult(null);
@@ -804,8 +804,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   markerGuideBox: {
-    width: 100,
-    height: 100,
+    width: 60,
+    height: 60,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.5)',
     borderStyle: 'dashed',

@@ -142,6 +142,13 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
 
     cv2.imwrite(os.path.join(debug_dir, f"input_{timestamp}.jpg"), img)
 
+    # Enhance brightness/contrast using CLAHE on LAB lightness channel
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    img = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
+
     results = model.predict(img, conf=0.2)
     counts = {"flower": 0, "fruit": 0, "leaf": 0, "ripening": 0}
 

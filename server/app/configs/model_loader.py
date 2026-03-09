@@ -5,7 +5,7 @@ import os
 LEAF_MODEL_PATH = "models/disease_v2.pt"
 DISEASE_CLASSIFIER_PATH = "models/final_Efficent_model.keras"
 QUALITY_MODEL_PATH = "models/qualityV4.pt"
-GROWTH_MODEL_PATH = "models/growth_.pt"
+GROWTH_MODEL_PATH = "models/growth.pt"
 
 leaf_model = YOLO(LEAF_MODEL_PATH)
 disease_classifier = '' #load_model(DISEASE_CLASSIFIER_PATH, compile=False)

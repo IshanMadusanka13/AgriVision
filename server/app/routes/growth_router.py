@@ -188,9 +188,9 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                         highest_y = sum(t[0] for t in leaf_tops[:n]) / n
                         highest_x = int(sum(t[1] for t in leaf_tops[:n]) / n)
 
-                    ground_level_y = marker_info['bottom_center'][1]
-                    ground_level_x = marker_info['bottom_center'][0]
-                    print(f"[ArUco] highest_y={highest_y}, ground_level_y={ground_level_y}, pixel_size={marker_info['pixel_size']:.2f}")
+                    ground_level_y = marker_info['top_center'][1]
+                    ground_level_x = marker_info['top_center'][0]
+                    print(f"[ArUco] highest_y={highest_y}, ground_level_y(top)={ground_level_y}, pixel_size={marker_info['pixel_size']:.2f}")
 
                     if highest_y is not None:
                         # Look up the real marker size from DB; fall back to 5 cm
@@ -439,7 +439,7 @@ async def full_analysis(
                     fa_leaf_tops.sort(key=lambda t: t[0])
                     n = min(3, len(fa_leaf_tops))
                     fa_highest_y = sum(t[0] for t in fa_leaf_tops[:n]) / n
-                    fa_ground_y  = fa_marker['bottom_center'][1]
+                    fa_ground_y  = fa_marker['top_center'][1]
                     fa_c = fa_marker['corners'].astype(float)
                     fa_by_y = sorted(fa_c, key=lambda p: p[1])
                     fa_top2, fa_bot2 = fa_by_y[:2], fa_by_y[2:]
