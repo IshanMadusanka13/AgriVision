@@ -20,7 +20,7 @@ export default function QualityScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Hero Section */}
       <LinearGradient
-        colors={['#10b981', '#34d399', '#6ee7b7']}
+        colors={['#2e7d32', '#4caf50', '#81c784']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroSection}
@@ -151,7 +151,7 @@ export default function QualityScreen() {
             <Text style={styles.stepNumberText}>3</Text>
           </View>
           <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Visual Grading</Text>
+            <Text style={styles.stepTitle}>Visual Sorting</Text>
             <Text style={styles.stepDescription}>
               Provides visual sorting guidance
             </Text>
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
 
   startButton: {
     flexDirection: 'row',
-    backgroundColor: '#10b981',
+    backgroundColor: '#2e7d32',
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 16,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
 
   ctaSection: { paddingHorizontal: 24, marginTop: 24 },
   ctaCard: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#e0f8e8',
     padding: 28,
     borderRadius: 20,
     alignItems: 'center',

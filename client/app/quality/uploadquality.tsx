@@ -137,6 +137,9 @@ export default function UploadQuality() {
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionTitle}>📋 Tips for Best Results:</Text>
         <Text style={styles.instructionText}>
+          • Please first select the front image
+        </Text>
+        <Text style={styles.instructionText}>
           • Use clear, well-lit Scotch Bonnet images
         </Text>
         <Text style={styles.instructionText}>

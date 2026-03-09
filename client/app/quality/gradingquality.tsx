@@ -96,13 +96,17 @@ export default function gradingquality() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centeredContainer}>
-          <Text style={[styles.title, { textAlign: "center", marginBottom: 20 }]}>
-            The uploaded image we doesn't detect Scotch Bonnet ,
-            Please upload a correct scotch bonnet batch images .
-          </Text>
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateEmoji}>🌶️</Text>
+            <Text style={styles.emptyStateTitle}>No Scotch Bonnet Detected.</Text>
+            <Text style={styles.emptyStateText}>
+              The uploaded image does not contain Scotch Bonnet peppers.
+            </Text>
+           
+          </View>
 
           <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: "#138745ff" }]}
+            style={[styles.nextBtn, styles.tryAgainBtn]}
             onPress={() => router.push("/quality/uploadquality")}
           >
             <Text style={styles.nextText}>Try Again</Text>
@@ -419,6 +423,42 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
 
+  emptyStateCard: {
+    width: "92%",
+    maxWidth: 420,
+    backgroundColor: "#ecfdf5",
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#86efac",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  emptyStateEmoji: {
+    fontSize: 44,
+    marginBottom: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#065f46",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptyStateText: {
+    fontSize: 15,
+    color: "#1f2937",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  emptyStateHint: {
+    fontSize: 14,
+    color: "#047857",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
   categoryCard: {
     backgroundColor: "#fff",
     padding: 14,
@@ -473,6 +513,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginVertical: 20,
+    width: "100%",
+  },
+  tryAgainBtn: {
+    backgroundColor: "#138745",
+    marginVertical: 0,
+    width: "92%",
+    maxWidth: 420,
   },
   nextText: { color: "#fff", fontWeight: "700" },
 
