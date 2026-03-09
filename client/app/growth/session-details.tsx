@@ -225,7 +225,7 @@ export default function SessionDetailsScreen() {
         {/* ── Plant height ────────────────────────────────────────────────── */}
         {session.plant_height_cm != null && session.plant_height_cm > 0 && (
           <View style={s.card}>
-            <Text style={s.cardTitle}>📏 Plant Height</Text>
+            <Text style={s.cardTitle}>📏 Plant Height(Approx.)</Text>
             <View style={s.heightNumRow}>
               <Text style={[s.heightBig, { color: info.color }]}>
                 {Math.floor(Number(session.plant_height_cm))}

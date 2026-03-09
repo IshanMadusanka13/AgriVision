@@ -149,7 +149,7 @@ def determine_growth_stage(img: np.ndarray, model) -> Tuple[str, float, Detectio
     l = clahe.apply(l)
     img = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
 
-    results = model.predict(img, conf=0.2)
+    results = model.predict(img, conf=0.7)
     counts = {"flower": 0, "fruit": 0, "leaf": 0, "ripening": 0}
 
     for result in results:

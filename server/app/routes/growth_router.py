@@ -165,7 +165,7 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                 # Calculate plant height if we have leaf detections
                 if counts.leaf > 0:
                     # Collect all leaf bounding-box tops from YOLO
-                    results = model.predict(img, conf=0.1)
+                    results = model.predict(img, conf=0.7)
                     leaf_tops = []  # (top_y, center_x) per detection
 
                     for result in results:

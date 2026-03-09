@@ -111,7 +111,7 @@ export default function ResultScreen() {
         {detection.plant_height_cm != null && (
           <View style={styles.heightSection}>
             <View style={styles.heightLabelRow}>
-              <Text style={styles.heightLabel}>📏  Plant Height</Text>
+              <Text style={styles.heightLabel}>📏  Plant Height(Approx.)</Text>
               <Text style={[styles.heightValue, { color: meta.color }]}>
                 {Math.floor(detection.plant_height_cm)} cm
               </Text>
