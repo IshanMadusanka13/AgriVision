@@ -46,6 +46,67 @@ class DiseaseService:
         except Exception as e:
             print(f"Error fetching disease info: {e}")
             return None
+    
+
+    # ==========================================================
+    # DISEASE MANAGEMENT FUNCTIONS
+    # ==========================================================
+
+    def get_all_diseases(self) -> List[Dict]:
+        try:
+            response = (
+                self.supabase.table("disease_info")
+                .select("*")
+                .order("disease_name")
+                .execute()
+            )
+
+            if response.data:
+                for disease in response.data:
+                    self._disease_cache[disease["disease_name"]] = disease
+                return response.data
+        
+            return []
+        
+        except Exception as e:
+            print(f"Error fetching all diseases: {e}")
+            return []
+
+    def update_disease(self, disease_id: str, update_data: Dict) -> Optional[Dict]:
+        try:
+            if "disease_name" in update_data:
+                raise ValueError("Disease name cannot be updated")
+
+            if "severity_level" in update_data:
+                valid_severities = ['High', 'Moderate', 'Low', 'None']
+                if update_data["severity_level"] not in valid_severities:
+                    raise ValueError(f"Severity level must be one of: {valid_severities}")
+
+            update_data["updated_at"] = datetime.now().isoformat()
+
+            response = (
+                self.supabase.table("disease_info")
+                .update(update_data)
+                .eq("id", disease_id)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                updated_disease = response.data[0]
+            
+                disease_name = updated_disease["disease_name"]
+                self._disease_cache[disease_name] = updated_disease
+            
+                return updated_disease
+
+            return None
+
+        except ValueError as ve:
+            print(f"Validation error updating disease: {ve}")
+            raise
+        except Exception as e:
+            print(f"Error updating disease: {e}")
+            return None
 
     def upload_image_to_storage(self, image: Image.Image, user_id: str) -> Optional[str]:
         try:
@@ -105,7 +166,7 @@ class DiseaseService:
             return None
 
     # ==========================================================
-    # MAIN PIPELINE
+    # Scan For Diseases
     # ==========================================================
 
     def disease_scan(

@@ -90,6 +90,17 @@ export default function AdminDashboard() {
             Configure NPK levels and detection thresholds for each growth stage
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/admin/edit-disease-info' as any)}
+        >
+          <Text style={styles.actionIcon}>📝</Text>
+          <Text style={styles.actionTitle}>Edit Disease Information</Text>
+          <Text style={styles.actionDescription}>
+            Modify disease details and treatment recommendations
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity

@@ -152,7 +152,18 @@ export interface DashboardStats {
   }>;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.3:8000';
+export interface Disease {
+  id: string;
+  disease_name: string;
+  description: string;
+  severity_level: "High" | "Moderate" | "Low" | "None";
+  symptoms: string;
+  treatment: string;
+  prevention: string;
+  updated_at?: string;
+}
+
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.203:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -311,6 +322,30 @@ export const get_user_detections = async (
   } catch (error: any) {
     console.error("Get detections error:", error);
     throw new Error(error.response?.data?.detail || "Failed to fetch detection history");
+  }
+};
+
+// Admin helpers for diseases
+export const getAllDiseases = async (): Promise<{status: string; total: number; diseases: Disease[]} > => {
+  try {
+    const response = await api.get('/api/disease/diseases');
+    return response.data;
+  } catch (error: any) {
+    console.error('Get all diseases error:', error);
+    throw new Error(error.response?.data?.detail || 'Failed to fetch diseases');
+  }
+};
+
+export const updateDisease = async (
+  diseaseId: string,
+  updateData: Partial<Disease>
+): Promise<{status: string; disease: Disease}> => {
+  try {
+    const response = await api.put(`/api/disease/diseases/${diseaseId}`, updateData);
+    return response.data;
+  } catch (error: any) {
+    console.error('Update disease error:', error);
+    throw new Error(error.response?.data?.detail || 'Failed to update disease');
   }
 };
 
@@ -904,6 +939,9 @@ export default {
   getWeatherForecast,
   checkAPIStatus,
   predict_disease,
+  // disease admin helpers
+  getAllDiseases,
+  updateDisease,
   gradeQuality,
   getAllBatches,
   deleteBatch,
