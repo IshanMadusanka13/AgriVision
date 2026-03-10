@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { FullAnalysisResult } from '@/services/api';
+import { FullAnalysisResult, getSmartAdvice, SmartAdviceResult } from '@/services/api';
 import { getPlant, calcAgeFull } from '@/utils/plantRegistry';
 
 const STAGES = ['Early Vegetative', 'Vegetative', 'Flowering', 'Fruiting', 'Ripening'];
@@ -39,12 +39,24 @@ export default function ResultScreen() {
   };
 
   const [plantAge, setPlantAge] = useState<string | null>(null);
+  const [smartAdvice, setSmartAdvice] = useState<SmartAdviceResult | null>(null);
+  const [smartLoading, setSmartLoading] = useState(false);
 
   useEffect(() => {
     if (detection.plant_id) {
       getPlant(detection.plant_id).then(p => {
         if (p) setPlantAge(calcAgeFull(p.startDate));
       });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (detection.plant_id && detection.growth_stage) {
+      setSmartLoading(true);
+      getSmartAdvice(detection.plant_id, detection.growth_stage)
+        .then(setSmartAdvice)
+        .catch(() => setSmartAdvice(null))
+        .finally(() => setSmartLoading(false));
     }
   }, []);
 
@@ -99,7 +111,7 @@ export default function ResultScreen() {
         {detection.plant_height_cm != null && (
           <View style={styles.heightSection}>
             <View style={styles.heightLabelRow}>
-              <Text style={styles.heightLabel}>📏  Plant Height</Text>
+              <Text style={styles.heightLabel}>📏  Plant Height(Approx.)</Text>
               <Text style={[styles.heightValue, { color: meta.color }]}>
                 {Math.floor(detection.plant_height_cm)} cm
               </Text>
@@ -237,6 +249,81 @@ export default function ResultScreen() {
               <Text style={styles.tipText}>{tip}</Text>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* ── Smart Advice (Benchmark Tips) ── */}
+      {detection.plant_id && (
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitleIcon}>🏆</Text>
+            <Text style={styles.cardTitle}>Smart Advice</Text>
+          </View>
+
+          {smartLoading ? (
+            <Text style={styles.smartStatusText}>Analysing peer plants...</Text>
+          ) : smartAdvice?.status === 'insufficient_data' ? (
+            <View style={styles.smartStatusBox}>
+              <Text style={styles.smartStatusIcon}>📊</Text>
+              <Text style={styles.smartStatusText}>{smartAdvice.tips[0]}</Text>
+            </View>
+          ) : smartAdvice?.status === 'not_configured' ? (
+            <View style={styles.smartStatusBox}>
+              <Text style={styles.smartStatusIcon}>⚙️</Text>
+              <Text style={styles.smartStatusText}>Smart advice is not configured yet.</Text>
+            </View>
+          ) : smartAdvice ? (
+            <>
+              {/* Benchmark info row */}
+              <View style={styles.benchmarkRow}>
+                <View style={styles.benchmarkBadge}>
+                  <Text style={styles.benchmarkBadgeText}>
+                    {smartAdvice.benchmark_used === 'peers' ? '👥 Peer Benchmark' : '📋 Optimal Values'}
+                  </Text>
+                </View>
+                {smartAdvice.status === 'no_peers' && (
+                  <Text style={styles.noPeersText}>No peers yet — using optimal values</Text>
+                )}
+              </View>
+
+              {/* Growth rate comparison */}
+              {smartAdvice.user_growth_rate_cm_per_day !== null && (
+                <View style={styles.growthRateRow}>
+                  <View style={styles.growthRateBox}>
+                    <Text style={styles.growthRateLabel}>Your Growth</Text>
+                    <Text style={[styles.growthRateValue, { color: meta.color }]}>
+                      {smartAdvice.user_growth_rate_cm_per_day.toFixed(2)} cm/day
+                    </Text>
+                  </View>
+                  {smartAdvice.benchmark_growth_rate_cm_per_day !== null && (
+                    <View style={styles.growthRateBox}>
+                      <Text style={styles.growthRateLabel}>Top Performers</Text>
+                      <Text style={[styles.growthRateValue, { color: '#f59e0b' }]}>
+                        {smartAdvice.benchmark_growth_rate_cm_per_day.toFixed(2)} cm/day
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Tips */}
+              {smartAdvice.tips.length > 0 ? (
+                smartAdvice.tips.map((tip, i) => (
+                  <View key={i} style={styles.smartTipItem}>
+                    <Text style={styles.smartTipIcon}>💡</Text>
+                    <Text style={styles.smartTipText}>{tip}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.smartStatusBox}>
+                  <Text style={styles.smartStatusIcon}>✅</Text>
+                  <Text style={styles.smartStatusText}>
+                    Your plant's conditions are close to top performers. Keep it up!
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : null}
         </View>
       )}
 
@@ -486,4 +573,61 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   newBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+
+  // Smart Advice card
+  smartStatusBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
+  smartStatusIcon: { fontSize: 20 },
+  smartStatusText: { flex: 1, fontSize: 13, color: '#6b7280', lineHeight: 19 },
+  benchmarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
+  },
+  benchmarkBadge: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  benchmarkBadgeText: { fontSize: 12, fontWeight: '700', color: '#065f46' },
+  noPeersText: { fontSize: 11, color: '#9ca3af', flex: 1 },
+  growthRateRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  growthRateBox: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  growthRateLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600', marginBottom: 4 },
+  growthRateValue: { fontSize: 16, fontWeight: '800' },
+  smartTipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fffbeb',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f59e0b',
+    gap: 10,
+  },
+  smartTipIcon: { fontSize: 16 },
+  smartTipText: { flex: 1, fontSize: 13, color: '#78350f', lineHeight: 19 },
 });

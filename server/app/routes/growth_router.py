@@ -150,7 +150,7 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
             from services.plant_tracking_service import PlantTrackingService
             tracking_service = PlantTrackingService(
                 yolo_model_path=None,
-                aruco_marker_size_cm=3.6,
+
                 aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL
             )
 
@@ -165,7 +165,7 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                 # Calculate plant height if we have leaf detections
                 if counts.leaf > 0:
                     # Collect all leaf bounding-box tops from YOLO
-                    results = model.predict(img, conf=0.3)
+                    results = model.predict(img, conf=0.7)
                     leaf_tops = []  # (top_y, center_x) per detection
 
                     for result in results:
@@ -188,12 +188,21 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                         highest_y = sum(t[0] for t in leaf_tops[:n]) / n
                         highest_x = int(sum(t[1] for t in leaf_tops[:n]) / n)
 
-                    ground_level_y = marker_info['bottom_center'][1]
-                    ground_level_x = marker_info['bottom_center'][0]
-                    print(f"[ArUco] highest_y={highest_y}, ground_level_y={ground_level_y}, pixel_size={marker_info['pixel_size']:.2f}")
+                    ground_level_y = marker_info['top_center'][1]
+                    ground_level_x = marker_info['top_center'][0]
+                    print(f"[ArUco] highest_y={highest_y}, ground_level_y(top)={ground_level_y}, pixel_size={marker_info['pixel_size']:.2f}")
 
                     if highest_y is not None:
-                        MARKER_CM = 3.6
+                        # Look up the real marker size from DB; fall back to 5 cm
+                        MARKER_CM = 5.0
+                        if user_email:
+                            try:
+                                _u = supabase_service.get_user_by_email(user_email)
+                                if _u:
+                                    MARKER_CM = supabase_service.get_marker_size(_u["id"], plant_id)
+                            except Exception:
+                                pass
+                        print(f"[ArUco] marker size = {MARKER_CM} cm (plant_id={plant_id})")
 
                         # Perspective correction using the marker's horizontal edges.
                         # The top and bottom edges of the marker represent the same
@@ -240,7 +249,6 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                                         _user["id"], plant_id
                                     )
                                     if prev_max is not None and plant_height_cm < prev_max:
-                                        print(f"[height-guard] new={plant_height_cm} < prev_max={prev_max} → clamping to {prev_max}")
                                         plant_height_cm = prev_max
                             except Exception as hg_err:
                                 print(f"[height-guard] skipped: {hg_err}")
@@ -404,12 +412,22 @@ async def full_analysis(
             from services.plant_tracking_service import PlantTrackingService
             _tracking = PlantTrackingService(
                 yolo_model_path=None,
-                aruco_marker_size_cm=3.6,
+
                 aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL
             )
             fa_marker = _tracking.detect_aruco_marker(img)
             if fa_marker and counts.leaf > 0:
                 fa_plant_id = fa_marker['plant_id']
+                # Look up real marker size from DB
+                fa_marker_cm = 5.0
+                if user_email:
+                    try:
+                        _u = supabase_service.get_user_by_email(user_email)
+                        if _u:
+                            fa_marker_cm = supabase_service.get_marker_size(_u["id"], fa_plant_id)
+                    except Exception:
+                        pass
+                print(f"[full_analysis] marker size = {fa_marker_cm} cm (plant_id={fa_plant_id})")
                 fa_results = model.predict(img, conf=0.3)
                 fa_leaf_tops = []
                 for r in fa_results:
@@ -421,7 +439,7 @@ async def full_analysis(
                     fa_leaf_tops.sort(key=lambda t: t[0])
                     n = min(3, len(fa_leaf_tops))
                     fa_highest_y = sum(t[0] for t in fa_leaf_tops[:n]) / n
-                    fa_ground_y  = fa_marker['bottom_center'][1]
+                    fa_ground_y  = fa_marker['top_center'][1]
                     fa_c = fa_marker['corners'].astype(float)
                     fa_by_y = sorted(fa_c, key=lambda p: p[1])
                     fa_top2, fa_bot2 = fa_by_y[:2], fa_by_y[2:]
@@ -430,13 +448,13 @@ async def full_analysis(
                     fa_y_top  = (fa_top2[0][1] + fa_top2[1][1]) / 2
                     fa_y_bot  = (fa_bot2[0][1] + fa_bot2[1][1]) / 2
                     if fa_top_px >= 5 and fa_bot_px >= 5:
-                        st = fa_top_px / 3.6
-                        sb = fa_bot_px / 3.6
+                        st = fa_top_px / fa_marker_cm
+                        sb = fa_bot_px / fa_marker_cm
                         g  = (sb - st) / max(fa_y_bot - fa_y_top, 1.0)
                         pr = (max(st + g * (fa_highest_y - fa_y_top), 1.0) +
                               max(st + g * (fa_ground_y  - fa_y_top), 1.0)) / 2
                     else:
-                        pr = fa_marker['pixel_size'] / 3.6
+                        pr = fa_marker['pixel_size'] / fa_marker_cm
                     fa_plant_height_cm = round((fa_ground_y - fa_highest_y) / pr, 1)
                     print(f"[full_analysis] plant_id={fa_plant_id} height={fa_plant_height_cm}cm")
         except Exception as aruco_err:
@@ -715,10 +733,11 @@ async def check_marker(file: UploadFile = File(...)):
         from services.plant_tracking_service import PlantTrackingService
         tracking = PlantTrackingService(
             yolo_model_path=None,
-            aruco_marker_size_cm=3.6,
+            aruco_marker_size_cm=5.0,
             aruco_dict_type=cv2.aruco.DICT_ARUCO_ORIGINAL,
         )
         marker_info = tracking.detect_aruco_marker(img)
+        print(f"[check_marker] marker_info = {marker_info}")
 
         if marker_info is None:
             return {
@@ -799,3 +818,18 @@ async def get_session_details(session_id: str):
     except Exception as e:
         print(f"Session details fetch error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch session details: {str(e)}")
+
+
+@router.get("/smart-advice/{plant_id}")
+async def get_smart_advice(plant_id: str, growth_stage: str):
+    """
+    Called by the app after a scan to get peer-benchmarked tips.
+    /api/growth/smart-advice/8?growth_stage=Vegetative%20Stage
+    """
+    try:
+        from services.smart_advice_service import generate_smart_advice
+        result = generate_smart_advice(plant_id, growth_stage)
+        return {"success": True, **result}
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=f"Smart advice error: {str(e)}")

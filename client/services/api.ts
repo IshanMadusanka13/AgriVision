@@ -139,6 +139,63 @@ export interface GrowthStageConfig {
   max_flowers: number;
   min_fruits: number;
   max_fruits: number;
+  ph_min?: number;
+  ph_max?: number;
+  humidity_min?: number;
+  humidity_max?: number;
+  temp_min?: number;
+  temp_max?: number;
+}
+
+export interface FertilizerDayPlan {
+  day: string;
+  fertilizer_type: string;
+  amount: string;
+  method: string;
+  watering: string;
+}
+
+export interface FertilizerStageConfig {
+  stage: string;
+  plan: FertilizerDayPlan[];
+}
+
+export interface StageTipsConfig {
+  stage: string;
+  tips: string[];
+}
+
+export interface ConditionKeyConfig {
+  condition_key: string;
+  warnings: string[];
+  tips: string[];
+}
+
+export interface ConditionsConfig {
+  ph_critical_low: number;
+  ph_low: number;
+  ph_high: number;
+  humidity_very_high: number;
+  humidity_high: number;
+  humidity_low: number;
+  temp_very_high: number;
+  temp_high: number;
+  temp_low: number;
+}
+
+export interface SmartAdviceSettings {
+  benchmark_top_percentile: number;
+  deviation_threshold: number;
+  history_days: number;
+}
+
+export interface SmartAdviceResult {
+  status: 'ok' | 'insufficient_data' | 'no_peers' | 'not_configured';
+  tips: string[];
+  benchmark_used: 'peers' | 'optimal_values' | null;
+  user_growth_rate_cm_per_day: number | null;
+  benchmark_growth_rate_cm_per_day: number | null;
+  benchmark_averages: { ph?: number; humidity?: number; temperature?: number };
 }
 
 export interface DashboardStats {
@@ -484,6 +541,21 @@ export const getWeatherForecast = async (
   }
 };
 
+export const getSmartAdvice = async (
+  plantId: number,
+  growthStage: string
+): Promise<SmartAdviceResult> => {
+  try {
+    const response = await api.get<{ success: boolean } & SmartAdviceResult>(
+      `/api/growth/smart-advice/${plantId}`,
+      { params: { growth_stage: growthStage } }
+    );
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, 'Smart Advice');
+  }
+};
+
 
 //-------------------------------------------------
 //-------------------Quality-----------------------
@@ -781,6 +853,116 @@ export const updateRecommendationsMetadata = async (userEmail: string, warnings:
   }
 };
 
+export const getFertilizerConfig = async (userEmail: string): Promise<FertilizerStageConfig[]> => {
+  try {
+    const response = await api.get<{ config: { stages: FertilizerStageConfig[] } }>(
+      '/api/admin/fertilizers/config',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.config?.stages || [];
+  } catch (error) {
+    return handleApiError(error, 'Get Fertilizer Config');
+  }
+};
+
+export const updateFertilizerConfig = async (userEmail: string, stages: FertilizerStageConfig[]): Promise<void> => {
+  try {
+    await api.put('/api/admin/fertilizers/config', { stages }, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Fertilizer Config');
+  }
+};
+
+export const getConditionsConfig = async (userEmail: string): Promise<ConditionsConfig> => {
+  try {
+    const response = await api.get<{ config: ConditionsConfig }>(
+      '/api/admin/conditions/config',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.config;
+  } catch (error) {
+    return handleApiError(error, 'Get Conditions Config');
+  }
+};
+
+export const updateConditionsConfig = async (userEmail: string, config: ConditionsConfig): Promise<void> => {
+  try {
+    await api.put('/api/admin/conditions/config', config, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Conditions Config');
+  }
+};
+
+export const getStageTipsConfig = async (userEmail: string): Promise<StageTipsConfig[]> => {
+  try {
+    const response = await api.get<{ config: { stages: StageTipsConfig[] } }>(
+      '/api/admin/stage-tips/config',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.config?.stages || [];
+  } catch (error) {
+    return handleApiError(error, 'Get Stage Tips Config');
+  }
+};
+
+export const updateStageTipsConfig = async (userEmail: string, stages: StageTipsConfig[]): Promise<void> => {
+  try {
+    await api.put('/api/admin/stage-tips/config', { stages }, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Stage Tips Config');
+  }
+};
+
+export const getConditionMessagesConfig = async (userEmail: string): Promise<ConditionKeyConfig[]> => {
+  try {
+    const response = await api.get<{ config: { conditions: ConditionKeyConfig[] } }>(
+      '/api/admin/condition-messages/config',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.config?.conditions || [];
+  } catch (error) {
+    return handleApiError(error, 'Get Condition Messages Config');
+  }
+};
+
+export const updateConditionMessagesConfig = async (userEmail: string, conditions: ConditionKeyConfig[]): Promise<void> => {
+  try {
+    await api.put('/api/admin/condition-messages/config', { conditions }, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Condition Messages Config');
+  }
+};
+
+export const getSmartAdviceSettings = async (userEmail: string): Promise<SmartAdviceSettings> => {
+  try {
+    const response = await api.get<{ settings: SmartAdviceSettings }>(
+      '/api/admin/smart-advice/settings',
+      { headers: { 'X-User-Email': userEmail } }
+    );
+    return response.data.settings;
+  } catch (error) {
+    return handleApiError(error, 'Get Smart Advice Settings');
+  }
+};
+
+export const updateSmartAdviceSettings = async (userEmail: string, settings: SmartAdviceSettings): Promise<void> => {
+  try {
+    await api.put('/api/admin/smart-advice/settings', settings, {
+      headers: { 'X-User-Email': userEmail },
+    });
+  } catch (error) {
+    return handleApiError(error, 'Update Smart Advice Settings');
+  }
+};
+
 //-------------------------------------------------
 //-------------------Growth History----------------
 //-------------------------------------------------
@@ -882,10 +1064,10 @@ export const getUserMarkers = async (email: string): Promise<{ markers: SavedMar
   }
 };
 
-export const getMarkerPreview = async (markerId: number, sizeCm: number): Promise<GeneratedMarker> => {
+export const getMarkerPreview = async (markerId: number, sizeCm: number, withLabel = false): Promise<GeneratedMarker> => {
   try {
     const response = await api.get(`/api/aruco/preview/${markerId}`, {
-      params: { size_cm: sizeCm, with_label: true },
+      params: { size_cm: sizeCm, with_label: withLabel },
     });
     return response.data;
   } catch (error) {
@@ -953,6 +1135,17 @@ export default {
   updateGrowthStageConfigAdmin,
   getRecommendationsMetadata,
   updateRecommendationsMetadata,
+  getFertilizerConfig,
+  updateFertilizerConfig,
+  getConditionsConfig,
+  updateConditionsConfig,
+  getStageTipsConfig,
+  updateStageTipsConfig,
+  getConditionMessagesConfig,
+  updateConditionMessagesConfig,
+  getSmartAdviceSettings,
+  updateSmartAdviceSettings,
+  getSmartAdvice,
   // growth
   getGrowthHistory,
   getSessionDetails,
