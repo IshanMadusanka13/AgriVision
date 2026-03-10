@@ -12,28 +12,18 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 from configs.model_loader import leaf_model, disease_classifier, unet_model, CLASS_NAMES
 from configs.supabase_client import get_supabase_client
 
-
-# =============================================================
-# CONFIGURATION
-# =============================================================
-
 CONF_THRESHOLD      = 0.4
 UNET_IMG_SIZE       = 256
 DISEASE_THRESHOLD   = 0.25
 
 SEVERITY_CLASSES    = {"bacterial_spot", "cercospora"}
 
-# EfficientNet fallback thresholds (mirrors model_tester.py)
-EFFNET_LOW_CONF     = 0.10   # below this → uncertain
-EFFNET_FALLBACK_CONF= 0.30   # second-best threshold when leaf_curl is rejected
+EFFNET_LOW_CONF     = 0.10
+EFFNET_FALLBACK_CONF= 0.30
+EFFNET_IMG_SIZE     = (260, 260) 
 
-# YOLO class names (must match your YOLO model's class map)
 YOLO_CLASS_NAMES    = {0: "leaf_curl", 1: "scotch_bonnet_leaf"}
 
-
-# =============================================================
-# HELPERS
-# =============================================================
 
 def _severity_label(percent: float, thresholds: list[dict]) -> str:
     for tier in thresholds:
@@ -41,7 +31,6 @@ def _severity_label(percent: float, thresholds: list[dict]) -> str:
         print(f"Checking percent {percent:.2f} against tier {tier['severity_level']} with max_score {max_score}")
         if max_score is not None and percent <= max_score:
             return tier["severity_level"]
-    # percent exceeds all thresholds → use the last (highest) tier
     return thresholds[-1]["severity_level"]
 
 
@@ -98,14 +87,6 @@ def _resolve_leaf_curl(
     all_preds: np.ndarray,
     yolo_class: str,
 ) -> str:
-    """
-    Mirror the dual-verification logic from model_tester.py.
-
-    - If EfficientNet says leaf_curl AND YOLO also detected leaf_curl → verified
-    - If EfficientNet says leaf_curl but YOLO did NOT → rejected, fall back to
-      second-best class (if conf >= EFFNET_FALLBACK_CONF) else 'uncertain'
-    - If conf < EFFNET_LOW_CONF → uncertain regardless
-    """
     if eff_conf < EFFNET_LOW_CONF:
         return "uncertain"
 
@@ -114,7 +95,7 @@ def _resolve_leaf_curl(
             return "leaf_curl"
         else:
             sorted_indices = np.argsort(all_preds)[::-1]
-            for idx in sorted_indices[1:]:          # skip the top (leaf_curl)
+            for idx in sorted_indices[1:]:
                 second_cls  = CLASS_NAMES[idx]
                 second_conf = float(all_preds[idx])
                 if second_cls != "leaf_curl":
@@ -123,31 +104,18 @@ def _resolve_leaf_curl(
 
     return eff_class
 
-
-# =============================================================
-# SERVICE
-# =============================================================
-
 class DiseaseService:
     def __init__(self):
         self.supabase = get_supabase_client()
         self._disease_cache: Dict[str, Dict] = {}
-        self._severity_thresholds_cache: Dict[str, list] = {}  # key: disease_name
+        self._severity_thresholds_cache: Dict[str, list] = {}
 
     @staticmethod
     def _cache_key(disease_name: str, severity_level: Optional[str] = None) -> str:
         return f"{disease_name}::{severity_level or 'ANY'}"
 
-    # ==========================================================
-    # SEVERITY THRESHOLDS
-    # ==========================================================
-
     def get_severity_thresholds(self, disease_name: str) -> list:
-        """
-        Fetch all rows for a disease ordered by severity_max_score ASC.
-        Returns list of {'severity_level': str, 'severity_max_score': float}.
-        Result is cached per disease_name.
-        """
+
         if disease_name in self._severity_thresholds_cache:
             return self._severity_thresholds_cache[disease_name]
 
@@ -167,10 +135,6 @@ class DiseaseService:
         except Exception as e:
             print(f"Error fetching severity thresholds for {disease_name}: {e}")
             return []
-
-    # ==========================================================
-    # DATABASE HELPERS
-    # ==========================================================
 
     def get_disease_info(
         self,
@@ -204,10 +168,6 @@ class DiseaseService:
             print(f"Error fetching disease info: {e}")
             return None
 
-    # ==========================================================
-    # DISEASE MANAGEMENT
-    # ==========================================================
-
     def get_all_diseases(self) -> List[Dict]:
         try:
             response = (
@@ -240,9 +200,7 @@ class DiseaseService:
                     "To change severity content, target the correct row by its UUID."
                 )
 
-            # If severity_max_score is being updated, invalidate threshold cache
             if "severity_max_score" in update_data:
-                # We'll invalidate after fetching the row's disease_name below
                 invalidate_threshold_cache = True
             else:
                 invalidate_threshold_cache = False
@@ -275,10 +233,6 @@ class DiseaseService:
             print(f"Error updating disease: {e}")
             return None
 
-    # ==========================================================
-    # IMAGE / DETECTION STORAGE
-    # ==========================================================
-
     def upload_image_to_storage(self, image: Image.Image, user_id: str) -> Optional[str]:
         try:
             img_byte_arr = io.BytesIO()
@@ -298,6 +252,7 @@ class DiseaseService:
         except Exception as e:
             print(f"Error uploading image: {e}")
             return None
+
 
     def insert_detection(
         self,
@@ -332,9 +287,6 @@ class DiseaseService:
             print(f"Error inserting detection: {e}")
             return None
 
-    # ==========================================================
-    # CORE SCAN
-    # ==========================================================
 
     def disease_scan(
         self,
@@ -346,7 +298,6 @@ class DiseaseService:
         img_array = np.array(image)
         img_bgr   = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
-        # ── 1. YOLO leaf detection ────────────────────────────
         results = leaf_model.predict(
             source=image,
             imgsz=640,
@@ -380,11 +331,8 @@ class DiseaseService:
         disease_counts  = Counter()
         recommendations = {}
 
-        # Pre-fetch severity thresholds for all severity-tracked diseases
-        # so we only hit the DB once per disease_name (not once per leaf)
         severity_thresholds_map: Dict[str, list] = {}
 
-        # ── 2. Per-leaf processing ────────────────────────────
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             yolo_cls_id     = int(box.cls[0])
@@ -394,9 +342,8 @@ class DiseaseService:
             if leaf_crop.size == 0:
                 continue
 
-            # ── 3. EfficientNet classification ────────────────
             leaf_rgb     = cv2.cvtColor(leaf_crop, cv2.COLOR_BGR2RGB)
-            leaf_resized = cv2.resize(leaf_rgb, (224, 224))
+            leaf_resized = cv2.resize(leaf_rgb, EFFNET_IMG_SIZE)
             leaf_input   = np.expand_dims(leaf_resized.astype(np.float32), axis=0)
             leaf_input   = preprocess_input(leaf_input)
 
@@ -405,7 +352,6 @@ class DiseaseService:
             confidence   = float(predictions[class_index])
             eff_class    = CLASS_NAMES[class_index]
 
-            # ── 4. Dual-verification for leaf_curl ────────────
             final_class = _resolve_leaf_curl(
                 eff_class=eff_class,
                 eff_conf=confidence,
@@ -415,10 +361,8 @@ class DiseaseService:
 
             disease_counts[final_class] += 1
 
-            # ── 5. U-Net severity (bacterial_spot / cercospora) ─
             severity: Optional[str] = None
             if final_class in SEVERITY_CLASSES:
-                # Fetch thresholds once per unique disease name
                 if final_class not in severity_thresholds_map:
                     severity_thresholds_map[final_class] = self.get_severity_thresholds(final_class)
 
@@ -427,7 +371,6 @@ class DiseaseService:
                 if thresholds:
                     leaf_crop_for_unet = cv2.resize(leaf_crop, (640, 640))
 
-                    # Run U-Net to get raw percent, then map via DB thresholds
                     oh, ow = leaf_crop_for_unet.shape[:2]
                     inp = cv2.cvtColor(leaf_crop_for_unet, cv2.COLOR_BGR2RGB)
                     inp = cv2.resize(inp, (UNET_IMG_SIZE, UNET_IMG_SIZE))
@@ -470,10 +413,8 @@ class DiseaseService:
                     disease_px = int(np.sum(filled        > 0))
                     percent    = (disease_px / leaf_px * 100) if leaf_px > 0 else 0.0
 
-                    # Map percent → severity_level using DB thresholds
                     severity = _severity_label(percent, thresholds)
 
-            # ── 6. Fetch recommendations (severity-aware) ─────
             rec_key = (
                 f"{final_class}::{severity}"
                 if severity is not None
@@ -493,7 +434,6 @@ class DiseaseService:
                         "description": disease_info.get("description", ""),
                     }
 
-            # ── 7. Leaf image → base64 ─────────────────────────
             leaf_pil = Image.fromarray(leaf_rgb)
             buffer   = io.BytesIO()
             leaf_pil.save(buffer, format="PNG")
@@ -512,7 +452,6 @@ class DiseaseService:
 
             leaves_output.append(leaf_entry)
 
-        # ── 8. Annotated full image ───────────────────────────
         annotated = img_bgr.copy()
         for leaf in leaves_output:
             x1, y1, x2, y2 = leaf["bbox"]
@@ -534,7 +473,6 @@ class DiseaseService:
             "recommendations" : recommendations,
         }
 
-        # ── 9. Persist to DB ──────────────────────────────────
         if save_to_db:
             annotated_url = self.upload_image_to_storage(annotated_pil, user_id)
 
@@ -555,10 +493,6 @@ class DiseaseService:
             )
 
         return result
-
-    # ==========================================================
-    # HISTORY
-    # ==========================================================
 
     def get_detections_by_user(self, user_id: str, limit: int = 10, offset: int = 0):
         try:
