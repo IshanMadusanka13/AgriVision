@@ -238,7 +238,7 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
 
                         plant_height_cm = (ground_level_y - highest_y) / pixel_ratio
                         plant_height_cm = round(plant_height_cm, 1)
-                        print(f"[ArUco] ✓ Plant height: {plant_height_cm} cm")
+                        
 
                         # Height monotonicity guard
                         if plant_id is not None and user_email:
