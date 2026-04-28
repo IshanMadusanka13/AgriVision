@@ -85,13 +85,13 @@ export default function HomeScreen() {
       route: '/growth/marker-generator',
       color: '#8b5cf6',
     },
-    {
-      title: 'Disease Detection',
-      description: 'Identify plant diseases',
-      icon: '🔬',
-      route: '/disease/disease',
-      color: '#f59e0b',
-    },
+    // {
+    //   title: 'Disease Detection',
+    //   description: 'Identify plant diseases',
+    //   icon: '🔬',
+    //   route: '/disease/disease',
+    //   color: '#f59e0b',
+    // },
     {
       title: 'Quality Grading',
       description: 'Detect the quality of scotch bonnet',

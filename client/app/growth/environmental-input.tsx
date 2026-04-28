@@ -8,9 +8,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFullAnalysis, getCurrentWeather, type WeatherData, type Location as LocationType } from '@/services/api';
 import { getPlant, calcAgeFull } from '@/utils/plantRegistry';
@@ -48,6 +50,7 @@ export default function EnvironmentalInputScreen() {
   const [userLocation, setUserLocation] = useState<LocationType | null>(null);
   const [autoDetected, setAutoDetected] = useState(false);
   const [plantAge, setPlantAge] = useState<string | null>(null);
+  const [diseaseImageUri, setDiseaseImageUri] = useState<string | null>(null);
 
   const stageKey = STAGES.find(s => detection.growth_stage?.toLowerCase().includes(s.toLowerCase())) || '';
   const meta = STAGE_META[stageKey] || { emoji: '🌱', color: '#10b981', bg: '#f0fdf4' };
@@ -62,6 +65,26 @@ export default function EnvironmentalInputScreen() {
       });
     }
   }, []);
+
+  const pickDiseaseImage = async (fromCamera: boolean) => {
+    if (fromCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera permission is required.', [{ text: 'OK' }]);
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images' as any, allowsEditing: true, aspect: [4, 3], quality: 0.8 });
+      if (!result.canceled) setDiseaseImageUri(result.assets[0].uri);
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Gallery permission is required.', [{ text: 'OK' }]);
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, allowsEditing: true, aspect: [4, 3], quality: 0.8 });
+      if (!result.canceled) setDiseaseImageUri(result.assets[0].uri);
+    }
+  };
 
   const getWeatherIcon = (condition: string) => {
     switch (condition) {
@@ -124,6 +147,7 @@ export default function EnvironmentalInputScreen() {
           resultData: JSON.stringify(result),
           camera_plant_id: detection.plant_id?.toString() || '',
           camera_plant_height: detection.plant_height_cm?.toString() || '',
+          disease_image_uri: diseaseImageUri || '',
         },
       });
     } catch (error) {
@@ -318,6 +342,37 @@ export default function EnvironmentalInputScreen() {
             {autoDetected ? '✅ Auto-detected — edit to override' : 'Current temperature'}
           </Text>
         </View>
+      </View>
+
+      {/* ── Disease Check (Optional) ── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>🔬  Disease Check</Text>
+        <Text style={styles.sectionDesc}>Optionally add a photo of affected leaves to include disease analysis in your results</Text>
+
+        {diseaseImageUri ? (
+          <View style={styles.diseasePreviewBox}>
+            <Image source={{ uri: diseaseImageUri }} style={styles.diseasePreviewImage} resizeMode="cover" />
+            <View style={styles.diseasePreviewActions}>
+              <TouchableOpacity style={styles.diseaseRetakeBtn} onPress={() => pickDiseaseImage(true)}>
+                <Text style={styles.diseaseRetakeBtnText}>📷  Retake</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.diseaseRemoveBtn} onPress={() => setDiseaseImageUri(null)}>
+                <Text style={styles.diseaseRemoveBtnText}>✕  Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.diseaseBtnRow}>
+            <TouchableOpacity style={styles.diseaseBtn} onPress={() => pickDiseaseImage(true)}>
+              <Text style={styles.diseaseBtnIcon}>📷</Text>
+              <Text style={styles.diseaseBtnText}>Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.diseaseBtn} onPress={() => pickDiseaseImage(false)}>
+              <Text style={styles.diseaseBtnIcon}>🖼️</Text>
+              <Text style={styles.diseaseBtnText}>Gallery</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* ── Submit ── */}
@@ -589,4 +644,44 @@ const styles = StyleSheet.create({
   },
   infoTitle: { fontSize: 14, fontWeight: '700', color: '#92400e', marginBottom: 8 },
   infoText: { fontSize: 13, color: '#78350f', marginBottom: 5, lineHeight: 18 },
+
+  // Disease check
+  diseaseBtnRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  diseaseBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f9fafb',
+  },
+  diseaseBtnIcon: { fontSize: 20 },
+  diseaseBtnText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  diseasePreviewBox: { marginTop: 4, borderRadius: 12, overflow: 'hidden', borderWidth: 1.5, borderColor: '#10b981' },
+  diseasePreviewImage: { width: '100%', height: 160 },
+  diseasePreviewActions: { flexDirection: 'row', gap: 10, padding: 10, backgroundColor: '#f9fafb' },
+  diseaseRetakeBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  diseaseRetakeBtnText: { fontSize: 13, fontWeight: '600', color: '#059669' },
+  diseaseRemoveBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+  },
+  diseaseRemoveBtnText: { fontSize: 13, fontWeight: '600', color: '#dc2626' },
 });
