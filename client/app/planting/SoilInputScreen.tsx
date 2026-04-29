@@ -23,7 +23,6 @@ type SoilPoint = {
   moisture: number;
 };
 
-// NEW: Type for averages
 type SoilAverages = {
   N: number;
   P: number;
@@ -36,7 +35,6 @@ type SoilAverages = {
 export default function SoilInputScreen() {
   const params = useLocalSearchParams();
 
-  // Get boundary and manualArea from previous screen
   let boundary: any[] = [];
   let manualArea: string = "0";
 
@@ -45,7 +43,8 @@ export default function SoilInputScreen() {
       typeof params.boundary === "string"
         ? JSON.parse(params.boundary)
         : [];
-    manualArea = typeof params.manualArea === "string" ? params.manualArea : "0";
+    manualArea =
+      typeof params.manualArea === "string" ? params.manualArea : "0";
   } catch (error) {
     console.log("Boundary parse error:", error);
     boundary = [];
@@ -61,7 +60,6 @@ export default function SoilInputScreen() {
     moisture: "",
   });
 
-  // ✅ Validate boundary
   useEffect(() => {
     if (!boundary || boundary.length < 3) {
       Alert.alert(
@@ -72,7 +70,6 @@ export default function SoilInputScreen() {
     }
   }, [boundary]);
 
-  // ✅ NEW: Calculate averages whenever points change
   useEffect(() => {
     if (soilPoints.length > 0) {
       calculateAverages();
@@ -81,10 +78,7 @@ export default function SoilInputScreen() {
     }
   }, [soilPoints]);
 
-  // ✅ NEW: Function to calculate averages
   const calculateAverages = () => {
-    if (soilPoints.length === 0) return;
-
     const sums = soilPoints.reduce(
       (acc, point) => ({
         N: acc.N + point.N,
@@ -97,6 +91,7 @@ export default function SoilInputScreen() {
     );
 
     const count = soilPoints.length;
+
     setSoilAverages({
       N: Number((sums.N / count).toFixed(1)),
       P: Number((sums.P / count).toFixed(1)),
@@ -107,7 +102,6 @@ export default function SoilInputScreen() {
     });
   };
 
-  // ✅ Get High Accuracy GPS
   const getCurrentLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
 
@@ -123,7 +117,6 @@ export default function SoilInputScreen() {
     return loc.coords;
   };
 
-  // ✅ Add Soil Point
   const addManualPoint = async () => {
     const coords = await getCurrentLocation();
     if (!coords) return;
@@ -161,7 +154,6 @@ export default function SoilInputScreen() {
     Alert.alert("Success", `Point ${soilPoints.length + 1} added.`);
   };
 
-  // ✅ Updated Submit Data - NOW INCLUDES AVERAGES
   const submitSoilData = () => {
     if (soilPoints.length < 3) {
       Alert.alert(
@@ -171,15 +163,14 @@ export default function SoilInputScreen() {
       return;
     }
 
-    // Show summary before proceeding
     Alert.alert(
       "Field Summary",
       `📍 ${soilPoints.length} soil samples\n` +
-      `📊 Averages:\n` +
-      `N: ${soilAverages?.N} | P: ${soilAverages?.P} | K: ${soilAverages?.K}\n` +
-      `pH: ${soilAverages?.pH} | Moisture: ${soilAverages?.moisture}%\n` +
-      `🌱 Area: ${(Number(manualArea) / 10000).toFixed(2)} hectares\n\n` +
-      `Proceed to results?`,
+        `📊 Averages:\n` +
+        `N: ${soilAverages?.N} | P: ${soilAverages?.P} | K: ${soilAverages?.K}\n` +
+        `pH: ${soilAverages?.pH} | Moisture: ${soilAverages?.moisture}%\n` +
+        `🌱 Area: ${Number(manualArea).toFixed(1)} m²\n\n` +
+        `Proceed to results?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -188,10 +179,10 @@ export default function SoilInputScreen() {
             router.push({
               pathname: "/planting/ResultScreen",
               params: {
-                soilData: JSON.stringify(soilPoints),      // All points for K-means
-                soilAverages: JSON.stringify(soilAverages), // Averages for yield prediction
+                soilData: JSON.stringify(soilPoints),
+                soilAverages: JSON.stringify(soilAverages),
                 boundary: JSON.stringify(boundary),
-                area: manualArea,                           // Area in sq meters
+                area: manualArea,
               },
             });
           },
@@ -200,7 +191,6 @@ export default function SoilInputScreen() {
     );
   };
 
-  // ✅ NEW: Render averages preview
   const renderAveragesPreview = () => {
     if (!soilAverages || soilPoints.length < 3) return null;
 
@@ -214,9 +204,13 @@ export default function SoilInputScreen() {
         </View>
         <View style={styles.avgRow}>
           <Text style={styles.avgItem}>pH: {soilAverages.pH}</Text>
-          <Text style={styles.avgItem}>Moisture: {soilAverages.moisture}%</Text>
+          <Text style={styles.avgItem}>
+            Moisture: {soilAverages.moisture}%
+          </Text>
         </View>
-        <Text style={styles.sampleCount}>Based on {soilPoints.length} samples</Text>
+        <Text style={styles.sampleCount}>
+          Based on {soilPoints.length} samples
+        </Text>
       </View>
     );
   };
@@ -224,15 +218,26 @@ export default function SoilInputScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
+        
+        
+
         <Text style={styles.title}>🌱 Manual Soil Entry</Text>
+
+
+        {/* ⚠️ WARNING ADDED HERE */}
+        <Text style={styles.warningText}>
+          ⚠️ The system recommends laboratory soil testing. Incorrect soil values may affect prediction accuracy.
+        </Text>
+
         <Text style={styles.areaText}>
-          Field Area: {(Number(manualArea) / 10000).toFixed(2)} hectares
+          Field Area: {Number(manualArea).toFixed(1)} m²
         </Text>
 
         {["N", "P", "K", "pH", "moisture"].map((key) => (
           <TextInput
             key={key}
             placeholder={`Enter ${key} ${key === "moisture" ? "(%)" : ""}`}
+            placeholderTextColor="#888"
             value={manualEntry[key as keyof typeof manualEntry]}
             keyboardType="numeric"
             onChangeText={(text) =>
@@ -247,10 +252,10 @@ export default function SoilInputScreen() {
         </TouchableOpacity>
 
         <Text style={styles.counter}>
-          Points: {soilPoints.length} {soilPoints.length < 3 ? "(min 3)" : "✅"}
+          Points: {soilPoints.length}{" "}
+          {soilPoints.length < 3 ? "(min 3)" : "✅"}
         </Text>
 
-        {/* NEW: Show averages preview */}
         {renderAveragesPreview()}
 
         <FlatList
@@ -260,18 +265,24 @@ export default function SoilInputScreen() {
           renderItem={({ item, index }) => (
             <View style={styles.pointCard}>
               <Text style={styles.pointTitle}>Point {index + 1}</Text>
-              <Text>N:{item.N} P:{item.P} K:{item.K}</Text>
-              <Text>pH:{item.pH} Moisture:{item.moisture}%</Text>
+              <Text>
+                N:{item.N} P:{item.P} K:{item.K}
+              </Text>
+              <Text>
+                pH:{item.pH} Moisture:{item.moisture}%
+              </Text>
             </View>
           )}
         />
 
         {soilPoints.length >= 3 && (
-          <TouchableOpacity 
-            style={[styles.button, styles.processButton]} 
+          <TouchableOpacity
+            style={[styles.button, styles.processButton]}
             onPress={submitSoilData}
           >
-            <Text style={styles.buttonText}>📊 Process Field & Predict Yield</Text>
+            <Text style={styles.buttonText}>
+              📊 Process Field & Predict Yield
+            </Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -281,15 +292,32 @@ export default function SoilInputScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
+
+  warningText: {
+    backgroundColor: "#fff3cd",
+    color: "#856404",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#ffeeba",
+    fontSize: 14,
+  },
+
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
-  areaText: { fontSize: 16, color: "#100e0e", marginBottom: 10 },
+
+  areaText: { fontSize: 16, color: "#000", marginBottom: 10 },
+
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
     padding: 12,
     marginVertical: 6,
     borderRadius: 8,
+    color: "#000",
+    backgroundColor: "#fff",
   },
+
   button: {
     backgroundColor: "#4CAF50",
     padding: 14,
@@ -297,17 +325,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     alignItems: "center",
   },
+
   processButton: { backgroundColor: "#2196F3" },
+
   buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+
   counter: { marginTop: 15, fontSize: 15, fontWeight: "500" },
+
   pointCard: {
     backgroundColor: "#e6f7ff",
     padding: 10,
     marginVertical: 6,
     borderRadius: 6,
   },
+
   pointTitle: { fontWeight: "600" },
-  // New styles
+
   averagesContainer: {
     backgroundColor: "#e3f2fd",
     padding: 16,
@@ -316,22 +349,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2196f3",
   },
+
   averagesTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#1976d2",
     marginBottom: 12,
   },
+
   avgRow: {
     flexDirection: "row",
     justifyContent: "space-around",
     marginBottom: 8,
   },
+
   avgItem: {
     fontSize: 16,
     fontWeight: "500",
     color: "#333",
   },
+
   sampleCount: {
     marginTop: 8,
     fontSize: 14,
