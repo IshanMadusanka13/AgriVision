@@ -200,9 +200,10 @@ export default function FieldWalkScreen() {
             }
 
             router.push({
-              pathname: "/planting/SoilInputScreen",
+              pathname: "/planting/SoilSamplingPlanScreen",
               params: {
                 manualArea: areaResult.sqMeters.toString(),
+                area: areaResult.sqMeters.toString(),
                 boundary: JSON.stringify(points),
               },
             });
