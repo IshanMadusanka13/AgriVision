@@ -1,0 +1,39 @@
+name: Deploy to Azure VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Azure VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/agrivision
+
+            git pull origin main
+
+            source server/venv/bin/activate
+            pip install -r server/requirements.txt --quiet
+
+            screen -S agrivision -X quit || true
+            screen -dmS agrivision bash -c "
+              source ~/agrivision/server/venv/bin/activate
+              cd ~/agrivision/server/app
+              uvicorn main:app --host 0.0.0.0 --port 8000
+            "
+
+            echo "Deploy complete!"
