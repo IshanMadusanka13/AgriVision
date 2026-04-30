@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Accelerometer } from 'expo-sensors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -18,7 +19,7 @@ import { getPlant, savePlant } from '@/utils/plantRegistry';
 
 // Tolerances (accelerometer units ≈ 0.15 → ~8.6°)
 const TILT_X_TOLERANCE = 0.15;  // left-right roll
-const TILT_Z_TOLERANCE = 0.20;  // forward-backward lean
+const TILT_Z_TOLERANCE = 0.40;  // forward-backward lean
 const UPRIGHT_MIN      = 0.75;  // |y| > this → phone held upright (not flat)
 
 
@@ -70,11 +71,30 @@ export default function CameraScreen() {
     return () => sub.remove();
   }, [selectedImage]);
 
+  // ── Gallery picker ─────────────────────────────────────────────────────────
+  const pickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setSelectedImage(result.assets[0].uri);
+      setDetectionResult(null);
+      setMarkerState('idle');
+      setMarkerMsg('');
+    }
+  };
+
   // ── Capture ────────────────────────────────────────────────────────────────
   const capturePhoto = async () => {
     if (!cameraRef.current || !isAngleOk) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, skipProcessing: false });
       if (photo) {
         setSelectedImage(photo.uri);
         setDetectionResult(null);
@@ -269,6 +289,20 @@ export default function CameraScreen() {
               </View>
             </View>
 
+            {/* ArUco marker target box */}
+            <View style={styles.markerGuideWrapper}>
+              <View style={styles.markerGuideBox}>
+                {/* Corner accents */}
+                <View style={[styles.mgCorner, styles.mgCornerTL]} />
+                <View style={[styles.mgCorner, styles.mgCornerTR]} />
+                <View style={[styles.mgCorner, styles.mgCornerBL]} />
+                <View style={[styles.mgCorner, styles.mgCornerBR]} />
+                {/* Centre label */}
+                <Text style={styles.markerGuideLabel}>ArUco Marker</Text>
+              </View>
+              <Text style={styles.markerGuideHint}>Place marker here</Text>
+            </View>
+
             {/* Status badge */}
             <View style={[styles.statusBadge, { backgroundColor: angleColor + 'DD' }]}>
               <Text style={styles.statusText}>{angleLabel}</Text>
@@ -278,6 +312,11 @@ export default function CameraScreen() {
 
           {/* Capture button row */}
           <View style={styles.captureRow}>
+            <TouchableOpacity style={styles.galleryBtn} onPress={pickFromGallery}>
+              <Text style={styles.galleryBtnIcon}>🖼️</Text>
+              <Text style={styles.galleryBtnText}>Gallery</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.captureBtn, !isAngleOk && styles.captureBtnDisabled]}
               onPress={capturePhoto}
@@ -285,10 +324,12 @@ export default function CameraScreen() {
             >
               <View style={[styles.captureInner, !isAngleOk && styles.captureInnerDisabled]} />
             </TouchableOpacity>
-            {!isAngleOk && (
-              <Text style={styles.captureHint}>Adjust angle to unlock</Text>
-            )}
+
+            <View style={styles.galleryPlaceholder} />
           </View>
+          {!isAngleOk && (
+            <Text style={styles.captureHint}>Adjust angle to unlock camera</Text>
+          )}
 
           {/* Tips */}
           <View style={styles.tipsRow}>
@@ -572,9 +613,12 @@ const styles = StyleSheet.create({
   // Capture button row
   captureRow: {
     position: 'absolute',
-    bottom: 32,
+    bottom: 48,
     left: 0, right: 0,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 32,
   },
   captureBtn: {
     width: 76, height: 76,
@@ -604,6 +648,24 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  galleryBtn: {
+    width: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryBtnIcon: {
+    fontSize: 28,
+  },
+  galleryBtnText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  galleryPlaceholder: {
+    width: 64,
   },
 
   // Tips row
@@ -733,4 +795,48 @@ const styles = StyleSheet.create({
     borderRadius: 12, backgroundColor: '#10b981', alignItems: 'center',
   },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  // ArUco marker guide box
+  markerGuideWrapper: {
+    position: 'absolute',
+    bottom: 170,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  markerGuideBox: {
+    width: 60,
+    height: 60,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  mgCorner: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderColor: '#10b981',
+    borderWidth: 2.5,
+  },
+  mgCornerTL: { top: -1, left: -1, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
+  mgCornerTR: { top: -1, right: -1, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
+  mgCornerBL: { bottom: -1, left: -1, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
+  mgCornerBR: { bottom: -1, right: -1, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
+  markerGuideLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  markerGuideHint: {
+    marginTop: 5,
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
 });

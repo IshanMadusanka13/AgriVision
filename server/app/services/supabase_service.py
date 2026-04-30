@@ -599,6 +599,20 @@ class SupabaseService:
         return len(response.data) > 0
 
 
+    def get_marker_size(self, user_id: str, marker_id: int, default: float = 5.0) -> float:
+        """Return the size_cm of an aruco marker, or default if not found."""
+        response = (
+            self.client.table("aruco_markers")
+            .select("size_cm")
+            .eq("user_id", user_id)
+            .eq("marker_id", marker_id)
+            .single()
+            .execute()
+        )
+        if response.data and response.data.get("size_cm"):
+            return float(response.data["size_cm"])
+        return default
+
     def get_available_marker_ids(self, user_id: str, max_id: int = 1000) -> List[int]:
         """Get list of available marker IDs for a user"""
         existing = (

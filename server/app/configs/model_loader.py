@@ -3,14 +3,14 @@ from tensorflow.keras.models import load_model
 import os
 
 LEAF_MODEL_PATH = "models/leaf.pt"
-DISEASE_CLASSIFIER_PATH = "models/final_Efficent_model1.keras"
+DISEASE_CLASSIFIER_PATH = "models/diseaseIdentifier.keras"
 SEVERITY_MODEL_PATH = "models/U_Net_Leaf_Severity_Model.keras"
-QUALITY_MODEL_PATH = "models/qualityV4.pt"
+QUALITY_MODEL_PATH = "models/qualityFinal.pt"
 GROWTH_MODEL_PATH = "models/growth.pt"
 
 leaf_model = YOLO(LEAF_MODEL_PATH)
-disease_classifier = '' #load_model(DISEASE_CLASSIFIER_PATH, compile=False)
-unet_model = '' #load_model(SEVERITY_MODEL_PATH, compile=False)
+disease_classifier = load_model(DISEASE_CLASSIFIER_PATH, compile=False)
+unet_model = load_model(SEVERITY_MODEL_PATH, compile=False)
 quality_model = YOLO(QUALITY_MODEL_PATH)
 growth_model = YOLO(GROWTH_MODEL_PATH)
 

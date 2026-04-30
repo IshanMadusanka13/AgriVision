@@ -88,11 +88,17 @@ class PlantTrackingService:
         center_x = int(np.mean(marker_corners[:, 0]))
         center_y = int(np.mean(marker_corners[:, 1]))
 
-        # Calculate bottom center (ground level reference)
+        # Calculate bottom center
         bottom_corners = marker_corners[np.argmax(marker_corners[:, 1])]
         bottom_neighbor = marker_corners[np.argsort(marker_corners[:, 1])[-2]]
         bottom_center_x = int((bottom_corners[0] + bottom_neighbor[0]) / 2)
         bottom_center_y = int((bottom_corners[1] + bottom_neighbor[1]) / 2)
+
+        # Calculate top center (used as height reference)
+        top_corners = marker_corners[np.argmin(marker_corners[:, 1])]
+        top_neighbor = marker_corners[np.argsort(marker_corners[:, 1])[1]]
+        top_center_x = int((top_corners[0] + top_neighbor[0]) / 2)
+        top_center_y = int((top_corners[1] + top_neighbor[1]) / 2)
 
         # Y-component only of vertical edges — removes horizontal tilt error.
         # np.linalg.norm gives diagonal length (includes dx), abs(dy) gives true
@@ -106,6 +112,7 @@ class PlantTrackingService:
             'corners': marker_corners,
             'center': (center_x, center_y),
             'bottom_center': (bottom_center_x, bottom_center_y),
+            'top_center': (top_center_x, top_center_y),
             'pixel_size': marker_pixel_size
         }
 
