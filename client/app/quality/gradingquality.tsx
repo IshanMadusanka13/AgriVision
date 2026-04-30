@@ -87,6 +87,12 @@ export default function gradingquality() {
       (counts["Category D"] || 0) ===
     0;
 
+  const totalPeppers =
+    (counts["Category A"] || 0) +
+    (counts["Category B"] || 0) +
+    (counts["Category C"] || 0) +
+    (counts["Category D"] || 0);
+
   const toggleUsage = (grade: string) => {
     setExpandedUsage(expandedUsage === grade ? null : grade);
   };
@@ -103,6 +109,31 @@ export default function gradingquality() {
               The uploaded image does not contain Scotch Bonnet peppers.
             </Text>
            
+          </View>
+
+          <TouchableOpacity
+            style={[styles.nextBtn, styles.tryAgainBtn]}
+            onPress={() => router.push("/quality/uploadquality")}
+          >
+            <Text style={styles.nextText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If a large batch is detected, show special message and Try Again (minimal change)
+  if (totalPeppers >= 80) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.centeredContainer}>
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateEmoji}>⚠️</Text>
+            <Text style={styles.emptyStateTitle}>More than 80 Scotch Bonnets detected.</Text>
+            <Text style={styles.emptyStateText}>
+              The system can detect up to 80 Scotch Bonnet peppers per batch. 
+              Please ensure your uploaded image does not exceed this limit. 
+            </Text>
           </View>
 
           <TouchableOpacity

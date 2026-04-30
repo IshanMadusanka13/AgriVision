@@ -220,7 +220,7 @@ export interface Disease {
   updated_at?: string;
 }
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.3:8000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://10.223.171.73:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
