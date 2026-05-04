@@ -240,19 +240,6 @@ async def detect_plant(file: UploadFile = File(...), user_email: Optional[str] =
                         plant_height_cm = round(plant_height_cm, 1)
                         
 
-                        # Height monotonicity guard
-                        if plant_id is not None and user_email:
-                            try:
-                                _user = supabase_service.get_user_by_email(user_email)
-                                if _user:
-                                    prev_max = supabase_service.get_max_height_for_plant(
-                                        _user["id"], plant_id
-                                    )
-                                    if prev_max is not None and plant_height_cm < prev_max:
-                                        plant_height_cm = prev_max
-                            except Exception as hg_err:
-                                print(f"[height-guard] skipped: {hg_err}")
-
                         # Draw height visualization on annotated image
                         if annotated_img is not None and debug_image_path:
                             out = annotated_img.copy()
@@ -459,25 +446,6 @@ async def full_analysis(
                     print(f"[full_analysis] plant_id={fa_plant_id} height={fa_plant_height_cm}cm")
         except Exception as aruco_err:
             print(f"[full_analysis] ArUco skipped: {aruco_err}")
-
-        # ── Height monotonicity guard ─────────────────────────────────────────
-        # A plant can only grow taller. If the new measurement is below the
-        # previously recorded maximum for this plant, keep the previous max.
-        if fa_plant_id is not None and fa_plant_height_cm is not None and user_email:
-            try:
-                _user = supabase_service.get_user_by_email(user_email)
-                if _user:
-                    prev_max = supabase_service.get_max_height_for_plant(
-                        _user["id"], fa_plant_id
-                    )
-                    if prev_max is not None and fa_plant_height_cm < prev_max:
-                        print(
-                            f"[height-guard] new={fa_plant_height_cm} < prev_max={prev_max} "
-                            f"→ clamping to {prev_max}"
-                        )
-                        fa_plant_height_cm = prev_max
-            except Exception as hg_err:
-                print(f"[height-guard] skipped: {hg_err}")
 
         from pydantic import BaseModel
         class DetectionResult(BaseModel):

@@ -60,6 +60,15 @@ export default function AdminLayout() {
           headerTitleStyle: { fontWeight: 'bold' },
         }}
       />
+      <Stack.Screen
+        name="edit-disease-info"
+        options={{
+          title: 'Disease Management',
+          headerStyle: { backgroundColor: '#dc2626' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
     </Stack>
   );
 }

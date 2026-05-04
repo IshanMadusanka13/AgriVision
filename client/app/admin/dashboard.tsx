@@ -52,10 +52,10 @@ export default function AdminDashboard() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <Text style={styles.title}>Admin Dashboard</Text>
         <Text style={styles.subtitle}>Manage your AgriVision application</Text>
-      </View>
+      </View> */}
 
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>

@@ -261,7 +261,7 @@ export default function EditDiseaseInfo() {
     <View style={styles.container}>
 
       {/* Header */}
-      <LinearGradient
+      {/* <LinearGradient
         colors={["#dc2626", "#ef4444", "#f87171"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -272,7 +272,7 @@ export default function EditDiseaseInfo() {
           {groups.length} disease{groups.length !== 1 ? "s" : ""} ·{" "}
           {allDiseases.length} total rows
         </Text>
-      </LinearGradient>
+      </LinearGradient> */}
 
       {/* Disease Groups */}
       <ScrollView

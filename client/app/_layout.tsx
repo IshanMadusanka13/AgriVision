@@ -31,6 +31,7 @@ export default function RootLayout() {
         <Stack.Screen name="disease" options={{ headerShown: false }} />
         <Stack.Screen name="growth" options={{ headerShown: false }} />
         <Stack.Screen name="quality" options={{ headerShown: false }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
 
         <Stack.Screen name="growth/camera"              options={{ title: 'Scan Plant',          ...gh }} />
         <Stack.Screen name="growth/growth"              options={{ title: 'Growth Monitor',      ...gh }} />

@@ -122,9 +122,8 @@ export default function CameraScreen() {
         setMarkerMsg(check.message);
       }
     } catch {
-      // If backend unreachable, allow proceeding without the check
-      setMarkerState('ok');
-      setMarkerMsg('');
+      setMarkerState('bad_angle');
+      setMarkerMsg('Could not reach server. Please check your connection and try again.');
     }
   };
 
