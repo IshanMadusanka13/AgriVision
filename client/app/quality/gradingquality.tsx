@@ -123,7 +123,7 @@ export default function gradingquality() {
   }
 
   // If a large batch is detected, show special message and Try Again (minimal change)
-  if (totalPeppers >= 80) {
+  if (totalPeppers >= 81) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centeredContainer}>
